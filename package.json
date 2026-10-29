@@ -29,6 +29,7 @@
     "@angular/cli": "^22.2.4",
     "@angular/compiler-cli": "^22.2.0",
     "@capacitor/cli": "^8.5.3",
+    "@types/three": "^0.186.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2"
   }

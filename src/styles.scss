@@ -1,1 +1,15 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global styles for YUMP! */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden; /* game is full-screen; pages manage their own scroll */
+  font-family: Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+app-root {
+  display: block;
+  height: 100dvh;
+  overflow: hidden;
+}
