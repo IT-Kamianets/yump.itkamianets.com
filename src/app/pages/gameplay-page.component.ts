@@ -10,64 +10,151 @@ import { VoiceInputService } from '../services/voice-input.service';
   selector: 'app-gameplay-page',
   imports: [RouterLink, DecimalPipe],
   template: `
-    <main class="game-shell">
+    <main class="game-shell" [style.--stage-accent]="level.accent">
+      <!-- 3D Canvas Stage -->
       <div #stage class="stage" aria-label="3D game view"></div>
-      <header>
-        <a routerLink="/levels" class="back">← Levels</a>
-        <div class="level-name"><span>0{{ level.id }}</span>{{ level.name }}</div>
-        <button (click)="openCalibration()">Mic settings</button>
-      </header>
-      <aside class="voice-panel">
-        <div class="voice-top"><span>Voice level</span><b>{{ voicePercent() }}%</b></div>
-        <div class="meter" aria-label="Voice volume"><div [style.width.%]="voicePercent()"></div></div>
-        <p>{{ voiceMessage() }}</p>
-      </aside>
-      <div class="tip">Speak to jump<br><span>louder = higher</span></div>
 
+      <!-- Top Arcade Game HUD -->
+      <header class="game-hud-top">
+        <a routerLink="/levels" class="hud-btn-back">
+          <span class="arrow">←</span>
+          <span>STAGES</span>
+        </a>
+
+        <div class="stage-pill">
+          <span class="stage-tag">STAGE 0{{ level.id }}</span>
+          <span class="stage-title">{{ level.name }}</span>
+        </div>
+
+        <button class="hud-btn-settings" (click)="openCalibration()" aria-label="Microphone settings">
+          <span class="icon">🎙️</span>
+          <span>MIC CALIBRATE</span>
+        </button>
+      </header>
+
+      <!-- Bottom Voice Jump Visualizer Cockpit -->
+      <aside class="voice-cockpit" [class.is-jumping]="voicePercent() >= 15">
+        <div class="cockpit-top">
+          <div class="cockpit-label">
+            <span class="mic-dot" [class.active]="voice.state() === 'ready'"></span>
+            <span>VOICE VOLUME</span>
+          </div>
+          <span class="cockpit-val">{{ voicePercent() }}%</span>
+        </div>
+
+        <!-- Equalizer Sound Wave Bars -->
+        <div class="eq-bars">
+          <div class="eq-bar" [style.height.%]="getEqHeight(1)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(2)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(3)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(4)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(5)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(6)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(7)"></div>
+          <div class="eq-bar" [style.height.%]="getEqHeight(8)"></div>
+        </div>
+
+        <!-- Jump Trigger Meter -->
+        <div class="cockpit-meter" aria-label="Voice meter">
+          <div class="meter-fill" [style.width.%]="voicePercent()"></div>
+          <div class="jump-threshold" title="Jump threshold (15%)"></div>
+        </div>
+
+        <p class="cockpit-msg">{{ voiceMessage() }}</p>
+      </aside>
+
+      <!-- Tip Bubble -->
+      <div class="game-tip-pill">
+        <span class="tip-sound-icon">🔊</span>
+        <span><b>LOUDER</b> = HIGHER JUMP!</span>
+      </div>
+
+      <!-- Calibration Modal -->
       @if (modal() === 'calibration') {
-        <div class="overlay">
-          <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="cal-title">
-            <p class="eyebrow">Microphone calibration</p>
-            <h1 id="cal-title">Tune your <i>jump.</i></h1>
+        <div class="overlay-backdrop">
+          <section class="arcade-dialog" role="dialog" aria-modal="true" aria-labelledby="cal-title">
+            <div class="dialog-mascot-wrap">
+              <img src="assets/bunny.png" alt="Yump Bunny" class="dialog-mascot" />
+            </div>
+
+            <span class="dialog-eyebrow">VOICE SETUP</span>
+            <h1 id="cal-title" class="dialog-title">Tune Your Jump!</h1>
+
             @if (voice.state() === 'idle' || voice.state() === 'denied' || voice.state() === 'unsupported') {
-              <p>{{ voice.message() || 'We use your microphone only to measure volume. No speech is recorded.' }}</p>
-              <button class="primary" (click)="calibrate()">Enable microphone</button>
+              <p class="dialog-desc">
+                {{ voice.message() || 'We use your microphone only to measure voice loudness. No audio is ever recorded or saved.' }}
+              </p>
+              <button class="btn-arcade cta-modal" (click)="calibrate()">
+                <span>ENABLE MICROPHONE 🎙️</span>
+              </button>
             }
+
             @if (voice.state() === 'requesting') {
-              <p>Opening microphone permission…</p>
+              <div class="cal-status-box">
+                <span class="spinner">⏳</span>
+                <p>Requesting microphone permission from browser…</p>
+              </div>
             }
+
             @if (voice.state() === 'calibrating') {
-              <p>Stay quiet — listening to room noise.</p>
-              <div class="cal-line"><i [style.width.%]="voice.calibrationProgress() * 100"></i></div>
-              <b>{{ voice.calibrationProgress() * 100 | number:'1.0-0' }}%</b>
+              <div class="cal-status-box">
+                <p class="cal-prompt">🤫 <b>Stay quiet for 2 seconds</b> while we measure room noise!</p>
+                <div class="cal-progress-track">
+                  <div class="cal-progress-bar" [style.width.%]="voice.calibrationProgress() * 100"></div>
+                </div>
+                <span class="cal-percent">{{ voice.calibrationProgress() * 100 | number:'1.0-0' }}%</span>
+              </div>
             }
+
             @if (voice.state() === 'ready') {
-              <p>All set. Your voice is now the jump button.</p>
-              <button class="primary" (click)="startLevel()">Start level →</button>
+              <div class="cal-status-box ready-box">
+                <p class="ready-text">✅ <b>All Set!</b> Your voice is now the jump button!</p>
+                <button class="btn-arcade cta-modal" (click)="startLevel()">
+                  <span>START STAGE ➔</span>
+                </button>
+              </div>
             }
+
             @if (voice.state() === 'denied' || voice.state() === 'unsupported') {
-              <a routerLink="/levels" class="text-link">Back to levels</a>
+              <a routerLink="/levels" class="dialog-cancel-link">Back to Stages</a>
             }
           </section>
         </div>
       }
 
+      <!-- Results Victory Modal -->
       @if (modal() === 'results') {
-        <div class="overlay">
-          <section class="dialog result" role="dialog" aria-modal="true">
-            <p class="eyebrow">Level complete</p>
-            <h1>Nice <i>yump!</i></h1>
-            <p>You crossed {{ level.name }} using your voice.</p>
+        <div class="overlay-backdrop">
+          <section class="arcade-dialog result-dialog" role="dialog" aria-modal="true">
+            <div class="dialog-mascot-wrap celebration">
+              <img src="assets/bunny.png" alt="Happy Bunny" class="dialog-mascot" />
+              <div class="confetti-stars">✨ 🏆 ✨</div>
+            </div>
+
+            <span class="dialog-eyebrow victory-tag">STAGE CLEARED!</span>
+            <h1 class="dialog-title victory-title">NICE YUMP!</h1>
+            <p class="dialog-desc">
+              You conquered <b>{{ level.name }}</b> using your voice like a champ!
+            </p>
+
             <div class="result-actions">
-              <button class="primary" (click)="restart()">Play again</button>
-              <a routerLink="/levels" class="text-link">Choose level</a>
+              <button class="btn-arcade" (click)="restart()">
+                <span>PLAY AGAIN 🔄</span>
+              </button>
+              <a routerLink="/levels" class="btn-arcade btn-arcade-secondary">
+                <span>STAGES MAP ➔</span>
+              </a>
             </div>
           </section>
         </div>
       }
 
+      <!-- Gameplay In-Game Toast Notice -->
       @if (notice()) {
-        <div class="notice">{{ notice() }}</div>
+        <div class="game-notice-toast">
+          <span class="toast-icon">💥</span>
+          <span>{{ notice() }}</span>
+        </div>
       }
     </main>
   `,
@@ -80,11 +167,13 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly modal = signal<'calibration' | 'results' | null>('calibration');
   readonly notice = signal('');
   readonly voicePercent = computed(() => Math.round(this.voice.tick() * 100));
-  readonly voiceMessage = computed(() =>
-    this.voice.state() === 'ready'
-      ? 'Ready — use your voice to jump.'
-      : this.voice.message(),
-  );
+  readonly voiceMessage = computed(() => {
+    if (this.voice.state() !== 'ready') return this.voice.message();
+    const pct = this.voicePercent();
+    if (pct >= 50) return '🚀 MEGA JUMP POWER!';
+    if (pct >= 15) return '🐰 JUMPING!';
+    return 'Listening… Speak louder to jump!';
+  });
 
   private engine?: GameEngine;
   private voiceLoop?: number;
@@ -103,7 +192,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   startLevel(): void {
     if (this.voice.state() !== 'ready' || !this.engine) return;
-    this.stopVoiceLoop(); // prevent duplicate loops if called twice
+    this.stopVoiceLoop();
     this.modal.set(null);
     this.engine.reset();
     this.engine.start((event) => this.onGameEvent(event));
@@ -114,11 +203,9 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     this.modal.set('calibration');
   }
 
-  /** Stop the voice mic and go back to calibration so the user can start fresh. */
   restart(): void {
     this.stopVoiceLoop();
     this.engine?.dispose();
-    // Rebuild the engine so the level resets to its initial state.
     this.engine = new GameEngine(this.stage!.nativeElement, this.level);
     this.voice.stop();
     this.voice.state.set('idle');
@@ -132,11 +219,17 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     this.voice.stop();
   }
 
+  getEqHeight(index: number): number {
+    const power = this.voice.tick();
+    if (power < 0.05) return 8;
+    const wave = Math.sin(index * 1.2 + performance.now() * 0.015);
+    const multiplier = 0.6 + 0.4 * wave;
+    return Math.min(100, Math.max(12, power * 100 * multiplier));
+  }
+
   private startVoiceLoop(): void {
     const loop = (): void => {
       const power = this.voice.tick();
-      // Trigger a jump when voice power exceeds a sensible minimum threshold (0.15 = ~15%).
-      // Using ≥ 0.15 avoids false jumps from ambient noise (noise floor + some headroom).
       if (power >= 0.15) {
         this.engine?.jump(power);
       }
@@ -159,9 +252,9 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const msg = event === 'hit'
-      ? 'Obstacle! Try that jump again.'
-      : 'Keep your voice up to clear the gap.';
+      ? 'Obstacle hit! Try that jump again!'
+      : 'Whoops! Keep your voice up to clear the gap!';
     this.notice.set(msg);
-    window.setTimeout(() => this.notice.set(''), 1600);
+    window.setTimeout(() => this.notice.set(''), 1800);
   }
 }
