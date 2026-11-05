@@ -160,10 +160,15 @@
 
   .title-highlight {
     display: inline-block;
-    background: linear-gradient(180deg, #edffaa 0%, #c4ff60 35%, var(--neon-lime) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 4px 0 #549906) drop-shadow(0 8px 0 #2b4f02) drop-shadow(0 0 40px rgba(163, 255, 46, 0.8));
+    color: var(--neon-lime);
+    text-shadow:
+      0 1px 0 #c4ff60,
+      0 2px 0 #8be617,
+      0 3px 0 #73c90e,
+      0 4px 0 #549906,
+      0 6px 0 #2b4f02,
+      0 10px 24px rgba(0, 0, 0, 0.6),
+      0 0 35px rgba(163, 255, 46, 0.6);
     letter-spacing: 0.03em;
   }
 }
