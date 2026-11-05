@@ -1,14 +1,16 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { GameEngine, GameEvent } from '../game/game-engine';
 import { getLevel } from '../game/levels';
 import { GameLevel } from '../models/game-level';
 import { VoiceInputService } from '../services/voice-input.service';
+import { TranslationService } from '../services/translation.service';
+import { LangSwitcherComponent } from '../components/lang-switcher.component';
 
 @Component({
   selector: 'app-gameplay-page',
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, LangSwitcherComponent],
   template: `
     <main class="game-shell" [style.--stage-accent]="level.accent">
       <!-- 3D Canvas Stage -->
@@ -18,18 +20,21 @@ import { VoiceInputService } from '../services/voice-input.service';
       <header class="game-hud-top">
         <a routerLink="/levels" class="hud-btn-back">
           <span class="arrow">←</span>
-          <span>STAGES</span>
+          <span>{{ i18n.t.stages }}</span>
         </a>
 
         <div class="stage-pill">
-          <span class="stage-tag">STAGE 0{{ level.id }}</span>
-          <span class="stage-title">{{ level.name }}</span>
+          <span class="stage-tag">{{ i18n.t.stages }} 0{{ level.id }}</span>
+          <span class="stage-title">{{ getLevelName(level.id) }}</span>
         </div>
 
-        <button class="hud-btn-settings" (click)="openCalibration()" aria-label="Microphone settings">
-          <span class="icon">🎙️</span>
-          <span>MIC CALIBRATE</span>
-        </button>
+        <div class="hud-top-right">
+          <button class="hud-btn-settings" (click)="openCalibration()" aria-label="Microphone settings">
+            <span class="icon">🎙️</span>
+            <span>{{ i18n.t.micCalibrate }}</span>
+          </button>
+          <app-lang-switcher />
+        </div>
       </header>
 
       <!-- Bottom Voice Jump Visualizer Cockpit -->
@@ -37,7 +42,7 @@ import { VoiceInputService } from '../services/voice-input.service';
         <div class="cockpit-top">
           <div class="cockpit-label">
             <span class="mic-dot" [class.active]="voice.state() === 'ready'"></span>
-            <span>VOICE VOLUME</span>
+            <span>{{ i18n.t.voiceVolume }}</span>
           </div>
           <span class="cockpit-val">{{ voicePercent() }}%</span>
         </div>
@@ -66,7 +71,7 @@ import { VoiceInputService } from '../services/voice-input.service';
       <!-- Tip Bubble -->
       <div class="game-tip-pill">
         <span class="tip-sound-icon">🔊</span>
-        <span><b>LOUDER</b> = HIGHER JUMP!</span>
+        <span><b>{{ i18n.t.louderHigherTip }}</b></span>
       </div>
 
       <!-- Calibration Modal -->
@@ -77,28 +82,28 @@ import { VoiceInputService } from '../services/voice-input.service';
               <img src="assets/bunny.png" alt="Yump Bunny" class="dialog-mascot" />
             </div>
 
-            <span class="dialog-eyebrow">VOICE SETUP</span>
-            <h1 id="cal-title" class="dialog-title">Tune Your Jump!</h1>
+            <span class="dialog-eyebrow">{{ i18n.t.voiceSetup }}</span>
+            <h1 id="cal-title" class="dialog-title">{{ i18n.t.tuneYourJump }}</h1>
 
             @if (voice.state() === 'idle' || voice.state() === 'denied' || voice.state() === 'unsupported') {
               <p class="dialog-desc">
-                {{ voice.message() || 'We use your microphone only to measure voice loudness. No audio is ever recorded or saved.' }}
+                {{ voice.message() || i18n.t.micPermissionInfo }}
               </p>
               <button class="btn-arcade cta-modal" (click)="calibrate()">
-                <span>ENABLE MICROPHONE 🎙️</span>
+                <span>{{ i18n.t.enableMic }}</span>
               </button>
             }
 
             @if (voice.state() === 'requesting') {
               <div class="cal-status-box">
                 <span class="spinner">⏳</span>
-                <p>Requesting microphone permission from browser…</p>
+                <p>{{ i18n.t.openingMic }}</p>
               </div>
             }
 
             @if (voice.state() === 'calibrating') {
               <div class="cal-status-box">
-                <p class="cal-prompt">🤫 <b>Stay quiet for 2 seconds</b> while we measure room noise!</p>
+                <p class="cal-prompt">🤫 <b>{{ i18n.t.stayQuiet }}</b></p>
                 <div class="cal-progress-track">
                   <div class="cal-progress-bar" [style.width.%]="voice.calibrationProgress() * 100"></div>
                 </div>
@@ -108,15 +113,15 @@ import { VoiceInputService } from '../services/voice-input.service';
 
             @if (voice.state() === 'ready') {
               <div class="cal-status-box ready-box">
-                <p class="ready-text">✅ <b>All Set!</b> Your voice is now the jump button!</p>
+                <p class="ready-text">✅ <b>{{ i18n.t.allSetReady }}</b></p>
                 <button class="btn-arcade cta-modal" (click)="startLevel()">
-                  <span>START STAGE ➔</span>
+                  <span>{{ i18n.t.startStage }} ➔</span>
                 </button>
               </div>
             }
 
             @if (voice.state() === 'denied' || voice.state() === 'unsupported') {
-              <a routerLink="/levels" class="dialog-cancel-link">Back to Stages</a>
+              <a routerLink="/levels" class="dialog-cancel-link">{{ i18n.t.backToStages }}</a>
             }
           </section>
         </div>
@@ -131,18 +136,18 @@ import { VoiceInputService } from '../services/voice-input.service';
               <div class="confetti-stars">✨ 🏆 ✨</div>
             </div>
 
-            <span class="dialog-eyebrow victory-tag">STAGE CLEARED!</span>
-            <h1 class="dialog-title victory-title">NICE YUMP!</h1>
+            <span class="dialog-eyebrow victory-tag">{{ i18n.t.stageCleared }}</span>
+            <h1 class="dialog-title victory-title">{{ i18n.t.niceYump }}</h1>
             <p class="dialog-desc">
-              You conquered <b>{{ level.name }}</b> using your voice like a champ!
+              {{ getConqueredText() }}
             </p>
 
             <div class="result-actions">
               <button class="btn-arcade" (click)="restart()">
-                <span>PLAY AGAIN 🔄</span>
+                <span>{{ i18n.t.playAgain }}</span>
               </button>
               <a routerLink="/levels" class="btn-arcade btn-arcade-secondary">
-                <span>STAGES MAP ➔</span>
+                <span>{{ i18n.t.stagesMap }}</span>
               </a>
             </div>
           </section>
@@ -163,6 +168,7 @@ import { VoiceInputService } from '../services/voice-input.service';
 export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   @ViewChild('stage') stage?: ElementRef<HTMLElement>;
 
+  readonly i18n = inject(TranslationService);
   readonly level: GameLevel;
   readonly modal = signal<'calibration' | 'results' | null>('calibration');
   readonly notice = signal('');
@@ -170,9 +176,9 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly voiceMessage = computed(() => {
     if (this.voice.state() !== 'ready') return this.voice.message();
     const pct = this.voicePercent();
-    if (pct >= 50) return '🚀 MEGA JUMP POWER!';
-    if (pct >= 15) return '🐰 JUMPING!';
-    return 'Listening… Speak louder to jump!';
+    if (pct >= 50) return this.i18n.t.megaPower;
+    if (pct >= 15) return this.i18n.t.jumping;
+    return this.i18n.t.listening;
   });
 
   private engine?: GameEngine;
@@ -180,6 +186,22 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   constructor(private readonly route: ActivatedRoute, readonly voice: VoiceInputService) {
     this.level = getLevel(Number(this.route.snapshot.paramMap.get('id')));
+  }
+
+  getLevelName(id: number): string {
+    const t = this.i18n.t;
+    switch (id) {
+      case 1: return t.level1Name;
+      case 2: return t.level2Name;
+      case 3: return t.level3Name;
+      case 4: return t.level4Name;
+      case 5: return t.level5Name;
+      default: return this.level.name;
+    }
+  }
+
+  getConqueredText(): string {
+    return this.i18n.t.conqueredMsg.replace('{level}', this.getLevelName(this.level.id));
   }
 
   ngAfterViewInit(): void {
@@ -252,8 +274,8 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const msg = event === 'hit'
-      ? 'Obstacle hit! Try that jump again!'
-      : 'Whoops! Keep your voice up to clear the gap!';
+      ? this.i18n.t.obstacleHitNotice
+      : this.i18n.t.fellNotice;
     this.notice.set(msg);
     window.setTimeout(() => this.notice.set(''), 1800);
   }

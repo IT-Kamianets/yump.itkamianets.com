@@ -83,6 +83,12 @@
   }
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .header-mascot {
   .mascot-avatar {
     width: 48px;

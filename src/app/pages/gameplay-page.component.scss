@@ -93,6 +93,12 @@
   }
 }
 
+.hud-top-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .hud-btn-settings {
   display: inline-flex;
   align-items: center;

@@ -1,9 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslationService } from '../services/translation.service';
+import { LangSwitcherComponent } from '../components/lang-switcher.component';
 
 @Component({
   selector: 'app-home-page',
-  imports: [RouterLink],
+  imports: [RouterLink, LangSwitcherComponent],
   template: `
     <main class="home-shell">
       <!-- Starry ambient particles background -->
@@ -15,10 +17,12 @@ import { RouterLink } from '@angular/router';
           <img src="assets/bunny-icon.png" alt="YUMP!" class="nav-bunny-icon" />
           <span class="logo-text">YUMP<span class="excl">!</span></span>
         </a>
+
         <div class="nav-actions">
           <button class="nav-btn" (click)="showHowTo.set(true)" aria-label="Open how to play tutorial">
-            <span class="icon">❓</span> How to Play
+            <span class="icon">❓</span> {{ i18n.t.howToPlay }}
           </button>
+          <app-lang-switcher />
         </div>
       </header>
 
@@ -26,27 +30,25 @@ import { RouterLink } from '@angular/router';
       <section class="hero-container">
         <div class="hero-content">
           <div class="game-pill">
-            <span class="sparkle">✨</span> 3D VOICE-CONTROLLED PLATFORMER
+            <span class="sparkle">✨</span> {{ i18n.t.gamePill }}
           </div>
 
           <h1 class="game-title">
-            MAKE NOISE.<br />
+            {{ i18n.t.makeNoise }}<br />
             <span class="title-highlight">YUMP!</span>
           </h1>
 
           <p class="hero-tagline">
-            Guide the hyperactive rabbit across tricky skyline platforms!
-            The <b>louder</b> you scream, sing, or whistle into your microphone,
-            the <b>higher</b> your rabbit leaps!
+            {{ i18n.t.heroTagline }}
           </p>
 
           <div class="hero-cta-group">
             <a routerLink="/levels" class="btn-arcade cta-play">
-              <span>PLAY GAME</span>
+              <span>{{ i18n.t.playGame }}</span>
               <span class="btn-arrow">➔</span>
             </a>
             <button class="btn-arcade btn-arcade-secondary cta-guide" (click)="showHowTo.set(true)">
-              <span>TUTORIAL</span>
+              <span>{{ i18n.t.tutorial }}</span>
             </button>
           </div>
 
@@ -55,22 +57,22 @@ import { RouterLink } from '@angular/router';
             <div class="feat-card">
               <span class="feat-icon">🎙️</span>
               <div>
-                <strong>Voice Physics</strong>
-                <p>Louder sound = bigger jump</p>
+                <strong>{{ i18n.t.voicePhysics }}</strong>
+                <p>{{ i18n.t.voicePhysicsDesc }}</p>
               </div>
             </div>
             <div class="feat-card">
               <span class="feat-icon">🐰</span>
               <div>
-                <strong>3D Action</strong>
-                <p>Avoid spikes & gaps</p>
+                <strong>{{ i18n.t.action3D }}</strong>
+                <p>{{ i18n.t.action3DDesc }}</p>
               </div>
             </div>
             <div class="feat-card">
               <span class="feat-icon">🏆</span>
               <div>
-                <strong>5 Fun Stages</strong>
-                <p>Beat the final challenge</p>
+                <strong>{{ i18n.t.stagesCount }}</strong>
+                <p>{{ i18n.t.stagesCountDesc }}</p>
               </div>
             </div>
           </div>
@@ -79,7 +81,7 @@ import { RouterLink } from '@angular/router';
         <!-- Mascot Showcase -->
         <div class="mascot-display">
           <div class="speech-bubble">
-            <span class="shout-text">SHOUT TO JUMP!</span>
+            <span class="shout-text">{{ i18n.t.shoutToJump }}</span>
             <div class="sound-bars">
               <span class="bar bar-1"></span>
               <span class="bar bar-2"></span>
@@ -104,10 +106,10 @@ import { RouterLink } from '@angular/router';
       <footer class="home-footer">
         <div class="footer-tip">
           <span class="tip-icon">🎧</span>
-          <span><b>Tip:</b> Headphones recommended for the cleanest microphone jump detection!</span>
+          <span>{{ i18n.t.bestWithHeadphones }}</span>
         </div>
         <div class="footer-links">
-          <span>WebGL 3D + Web Audio API</span>
+          <span>{{ i18n.t.webGlAudio }}</span>
         </div>
       </footer>
     </main>
@@ -121,8 +123,8 @@ import { RouterLink } from '@angular/router';
           <div class="modal-header">
             <img src="assets/bunny-icon.png" alt="Bunny" class="modal-bunny-pic" />
             <div>
-              <span class="modal-subtitle">EASY 3-STEP GUIDE</span>
-              <h2 id="how-title" class="modal-title">How To Play</h2>
+              <span class="modal-subtitle">{{ i18n.t.easyGuide }}</span>
+              <h2 id="how-title" class="modal-title">{{ i18n.t.howToPlayTitle }}</h2>
             </div>
           </div>
 
@@ -130,31 +132,31 @@ import { RouterLink } from '@angular/router';
             <div class="step-card">
               <div class="step-num">1</div>
               <div class="step-body">
-                <h3>Allow Microphone 🎙️</h3>
-                <p>When starting a stage, tap <b>Enable Microphone</b>. The game only measures your voice volume—no audio is ever recorded or saved.</p>
+                <h3>{{ i18n.t.step1Title }}</h3>
+                <p>{{ i18n.t.step1Desc }}</p>
               </div>
             </div>
 
             <div class="step-card">
               <div class="step-num">2</div>
               <div class="step-body">
-                <h3>Quiet Calibration 🤫</h3>
-                <p>Stay quiet for 2 seconds so the game learns your room noise. This ensures background hum won't trigger accidental hops!</p>
+                <h3>{{ i18n.t.step2Title }}</h3>
+                <p>{{ i18n.t.step2Desc }}</p>
               </div>
             </div>
 
             <div class="step-card">
               <div class="step-num">3</div>
               <div class="step-body">
-                <h3>Make Noise & Leap! 🐰💨</h3>
-                <p>Talk, shout "YUMP!", hum, or sing. A soft sound makes small precise hops; a loud scream clears wide gap jumps and obstacles!</p>
+                <h3>{{ i18n.t.step3Title }}</h3>
+                <p>{{ i18n.t.step3Desc }}</p>
               </div>
             </div>
           </div>
 
           <div class="modal-footer">
             <a routerLink="/levels" class="btn-arcade" (click)="showHowTo.set(false)">
-              CHOOSE A STAGE ➔
+              {{ i18n.t.chooseStage }} ➔
             </a>
           </div>
         </section>
@@ -164,5 +166,6 @@ import { RouterLink } from '@angular/router';
   styleUrl: './home-page.component.scss',
 })
 export class HomePageComponent {
+  readonly i18n = inject(TranslationService);
   readonly showHowTo = signal(false);
 }
