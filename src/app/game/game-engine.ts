@@ -1,18 +1,92 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GameLevel } from '../models/game-level';
+import { AudioManager } from './audio-manager';
 
-export type GameEvent = 'won' | 'fell' | 'hit';
+export type GameEvent = 'won' | 'fell' | 'hit' | 'coin' | 'carrot' | 'shield-break' | 'shield-expire';
+
+interface Particle {
+  mesh: THREE.Mesh;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  maxLife: number;
+  active: boolean;
+}
+
+interface PlatformBlock {
+  group: THREE.Group;
+  baseMesh: THREE.Mesh;
+  topPlate: THREE.Mesh;
+  x: number;
+  y: number;
+  width: number;
+  hazard?: HazardBlock;
+  coins: CoinItem[];
+  carrot?: CarrotItem;
+}
+
+interface HazardBlock {
+  mesh: THREE.Mesh;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMoving: boolean;
+  moveSpeed: number;
+  moveRange: number;
+  initialY: number;
+}
+
+interface CoinItem {
+  mesh: THREE.Mesh;
+  x: number;
+  y: number;
+  baseY: number;
+  phase: number;
+  active: boolean;
+}
+
+interface CarrotItem {
+  group: THREE.Group;
+  x: number;
+  y: number;
+  baseY: number;
+  phase: number;
+  active: boolean;
+}
 
 export class GameEngine {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
+  private readonly camera = new THREE.PerspectiveCamera(46, 1, 0.1, 120);
   private readonly renderer: THREE.WebGLRenderer;
-  private readonly light = new THREE.DirectionalLight('#fff5e0', 2.8);
+  private readonly dirLight = new THREE.DirectionalLight('#fff5e0', 2.8);
+  private readonly ambientLight = new THREE.AmbientLight('#ffffff', 0.9);
+  private readonly hemisphereLight = new THREE.HemisphereLight('#c4e2ff', '#141838', 1.8);
+
   private readonly bunny = new THREE.Group();
-  private readonly platformMeshes: THREE.Mesh[] = [];
-  private readonly obstacleMeshes: THREE.Mesh[] = [];
+  private readonly modelWrapper = new THREE.Group();
+  private fallbackBunny?: THREE.Group;
+  private mixer?: THREE.AnimationMixer;
+
+  // Audio effects
+  private readonly audio = new AudioManager();
+
+  // Shield Visuals
+  private shieldMesh!: THREE.Mesh;
+  private shieldGlowMesh!: THREE.Mesh;
+
+  // Particle pool
+  private readonly particles: Particle[] = [];
+
+  // Platforms and items pool
+  private readonly platformBlocks: PlatformBlock[] = [];
+  private rightmostX = 0;
+
+  // Physics & Movement
   private velocityY = 0;
-  private readonly runSpeed = 3.05;
+  private readonly runSpeed = 3.6;
   private grounded = true;
   private jumpCooldown = 0;
   private running = false;
@@ -20,22 +94,63 @@ export class GameEngine {
   private lastTimestamp = 0;
   private onEvent?: (event: GameEvent) => void;
 
+  // Game state
+  public score = 0;
+  public distance = 0;
+  public shieldActive = false;
+  public shieldTimer = 0;
+  private invulnerableTimer = 0;
+  private squashTime = 0;
+
+  // Materials & Geometries cache
+  private coinGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 16);
+  private coinMaterial = new THREE.MeshStandardMaterial({
+    color: '#ffd214',
+    emissive: '#ff9900',
+    emissiveIntensity: 0.5,
+    roughness: 0.25,
+    metalness: 0.85,
+  });
+
+  private hazardMaterial = new THREE.MeshStandardMaterial({
+    color: '#ff2a6d',
+    emissive: '#aa0033',
+    emissiveIntensity: 0.45,
+    roughness: 0.3,
+  });
+
+  private particleGeo = new THREE.SphereGeometry(0.08, 8, 8);
+
+  // Level goal distance
+  private readonly targetDistance = 140;
+
   constructor(private readonly host: HTMLElement, private readonly level: GameLevel) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor('#0d122b');
+    this.renderer.setClearColor('#0a0e27');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     host.appendChild(this.renderer.domElement);
+
     this.buildScene();
+    this.initParticles();
+    this.loadBunnyModel();
     this.resize();
     window.addEventListener('resize', this.resize);
+    window.addEventListener('keydown', this.handleKeyDown);
   }
 
-  /**
-   * Begin the game loop and register a callback for game events.
-   * Calling start() while already running is a no-op.
-   */
+  /** Handle space bar or up arrow jump as keyboard fallback */
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+      e.preventDefault();
+      this.jump(0.65);
+    }
+  };
+
+  /** Start the game loop */
   start(onEvent: (event: GameEvent) => void): void {
     if (this.running) return;
     this.onEvent = onEvent;
@@ -46,19 +161,37 @@ export class GameEngine {
 
   /**
    * Trigger a jump from voice input.
-   * @param voiceForce  Normalised voice amplitude [0, 1].
-   *                    0 → min jump (6.6 u/s), 1 → max jump (13.6 u/s).
+   * @param voiceForce Normalised voice amplitude [0, 1].
+   * Louder scream = exponentially higher jump!
    */
   jump(voiceForce: number): void {
     if (!this.grounded || this.jumpCooldown > 0) return;
-    this.velocityY = 6.6 + Math.min(1, voiceForce) * 7.2;
+
+    // Formula: min jump (7.0 u/s) to mega leap (15.8 u/s) based on loudness
+    const clampedForce = Math.max(0, Math.min(1, voiceForce));
+    this.velocityY = 7.0 + Math.pow(clampedForce, 0.85) * 8.8;
     this.grounded = false;
-    this.jumpCooldown = 0.25;
+    this.jumpCooldown = 0.22;
+
+    // Procedural stretch when launching into air
+    this.modelWrapper.scale.set(0.8, 1.25, 0.8);
+
+    // Audio chirp
+    this.audio.playJump();
   }
 
-  /** Reposition the bunny at the start and stop the game loop. Call before start(). */
+  /** Reposition everything at the beginning and clear state */
   reset(): void {
     this.running = false;
+    this.score = 0;
+    this.distance = 0;
+    this.shieldActive = false;
+    this.shieldTimer = 0;
+    this.invulnerableTimer = 0;
+    if (this.shieldMesh) this.shieldMesh.visible = false;
+    if (this.shieldGlowMesh) this.shieldGlowMesh.visible = false;
+
+    this.rebuildAllPlatforms();
     this.placeBunnyAtStart();
   }
 
@@ -66,196 +199,470 @@ export class GameEngine {
     this.running = false;
     if (this.animationFrame !== undefined) cancelAnimationFrame(this.animationFrame);
     window.removeEventListener('resize', this.resize);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.audio.dispose();
     this.renderer.dispose();
     this.host.replaceChildren();
   }
 
   // ---------------------------------------------------------------------------
-  // Scene construction
+  // Scene Construction
   // ---------------------------------------------------------------------------
 
   private buildScene(): void {
-    this.scene.fog = new THREE.Fog('#0d122b', 24, 65);
-    this.camera.position.set(4, 7.8, 14.5);
+    this.scene.fog = new THREE.Fog('#0a0e27', 26, 75);
+
+    // Camera initial framing
+    this.camera.position.set(4, 7.6, 14.2);
     this.camera.lookAt(4, 1.8, 0);
 
-    // Warm ambient and hemisphere lights for arcade vibrancy
-    const hemisphere = new THREE.HemisphereLight('#c4e2ff', '#141838', 2.0);
-    this.scene.add(hemisphere);
+    // Dynamic Lighting
+    this.scene.add(this.ambientLight);
+    this.scene.add(this.hemisphereLight);
 
-    this.light.position.set(4, 12, 8);
-    this.light.castShadow = true;
-    this.light.shadow.mapSize.set(1024, 1024);
-    this.scene.add(this.light);
+    this.dirLight.position.set(6, 14, 10);
+    this.dirLight.castShadow = true;
+    this.dirLight.shadow.mapSize.set(1024, 1024);
+    this.dirLight.shadow.camera.near = 0.5;
+    this.dirLight.shadow.camera.far = 40;
+    this.dirLight.shadow.camera.left = -15;
+    this.dirLight.shadow.camera.right = 15;
+    this.dirLight.shadow.camera.top = 15;
+    this.dirLight.shadow.camera.bottom = -10;
+    this.scene.add(this.dirLight);
 
-    // Sky backdrop with subtle space tones
-    const backdrop = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 45),
-      new THREE.MeshBasicMaterial({ color: '#090d24' }),
-    );
-    backdrop.position.set(25, 8, -8);
+    // Deep Space Backdrop with star grid illusion
+    const backdropGeo = new THREE.PlaneGeometry(160, 60);
+    const backdropMat = new THREE.MeshBasicMaterial({ color: '#070a1e' });
+    const backdrop = new THREE.Mesh(backdropGeo, backdropMat);
+    backdrop.position.set(30, 10, -14);
     this.scene.add(backdrop);
 
-    // Build Level Platforms
-    this.level.platforms.forEach((platform, idx) => {
-      // Main platform block
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(platform.width, 0.75, 3.4),
-        new THREE.MeshStandardMaterial({
-          color: this.level.accent,
-          roughness: 0.45,
-          metalness: 0.15,
-        }),
-      );
-      mesh.position.set(platform.x, platform.y, 0);
-      mesh.receiveShadow = true;
-      mesh.castShadow = true;
-      mesh.userData['spec'] = platform;
-      this.platformMeshes.push(mesh);
-      this.scene.add(mesh);
+    // Build Shield meshes
+    this.buildShieldVisuals();
 
-      // Platform neon top glowing plate
-      const topPlate = new THREE.Mesh(
-        new THREE.BoxGeometry(platform.width - 0.05, 0.08, 3.25),
-        new THREE.MeshStandardMaterial({
-          color: '#ffffff',
-          emissive: this.level.accent,
-          emissiveIntensity: 0.35,
-          roughness: 0.2,
-        }),
-      );
-      topPlate.position.set(platform.x, platform.y + 0.38, 0);
-      this.scene.add(topPlate);
+    // Setup Bunny container
+    this.bunny.add(this.modelWrapper);
+    this.buildFallbackBunny();
+    this.scene.add(this.bunny);
 
-      // If final goal platform, add victory carrot trophy
-      if (idx === this.level.platforms.length - 1) {
-        this.buildGoalTrophy(platform.x, platform.y + 0.75);
-      }
-    });
-
-    // Build Obstacles (Spikes / Red Hazard Blocks)
-    this.level.obstacles.forEach((obstacle) => {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(obstacle.width, obstacle.height, 2.2),
-        new THREE.MeshStandardMaterial({
-          color: '#ff2a6d',
-          emissive: '#aa0033',
-          emissiveIntensity: 0.4,
-          roughness: 0.3,
-        }),
-      );
-      mesh.position.set(obstacle.x, obstacle.height / 2 + 0.37, 0);
-      mesh.castShadow = true;
-      mesh.userData['spec'] = obstacle;
-      this.obstacleMeshes.push(mesh);
-      this.scene.add(mesh);
-    });
-
-    this.buildBunny();
+    // Initial platform generation
+    this.rebuildAllPlatforms();
     this.placeBunnyAtStart();
   }
 
-  /** Create celebratory carrot trophy on final platform */
-  private buildGoalTrophy(x: number, y: number): void {
-    const trophy = new THREE.Group();
-    // Carrot cone
-    const carrotGeo = new THREE.ConeGeometry(0.35, 1.1, 16);
-    const carrotMat = new THREE.MeshStandardMaterial({ color: '#ff7700', roughness: 0.3 });
-    const carrot = new THREE.Mesh(carrotGeo, carrotMat);
-    carrot.rotation.x = Math.PI; // point down
-    carrot.position.y = 0.55;
-    trophy.add(carrot);
+  /** Glowing futuristic shield bubble around the rabbit */
+  private buildShieldVisuals(): void {
+    const shieldGeo = new THREE.SphereGeometry(1.25, 24, 20);
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: '#00f0ff',
+      emissive: '#00d0ff',
+      emissiveIntensity: 0.7,
+      transparent: true,
+      opacity: 0.35,
+      roughness: 0.1,
+      metalness: 0.3,
+      depthWrite: false,
+    });
+    this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    this.shieldMesh.position.set(0, 0.9, 0);
+    this.shieldMesh.visible = false;
+    this.bunny.add(this.shieldMesh);
 
-    // Leaves
-    const leafGeo = new THREE.ConeGeometry(0.12, 0.45, 8);
-    const leafMat = new THREE.MeshStandardMaterial({ color: '#33cc33', roughness: 0.3 });
-    for (let i = 0; i < 3; i++) {
-      const leaf = new THREE.Mesh(leafGeo, leafMat);
-      leaf.position.set((i - 1) * 0.12, 1.15, 0);
-      leaf.rotation.z = (i - 1) * 0.3;
-      trophy.add(leaf);
-    }
-
-    trophy.position.set(x, y, 0);
-    this.scene.add(trophy);
+    // Outer faint pulse aura
+    const outerGeo = new THREE.SphereGeometry(1.36, 16, 14);
+    const outerMat = new THREE.MeshBasicMaterial({
+      color: '#a3ff2e',
+      wireframe: true,
+      transparent: true,
+      opacity: 0.25,
+    });
+    this.shieldGlowMesh = new THREE.Mesh(outerGeo, outerMat);
+    this.shieldGlowMesh.position.set(0, 0.9, 0);
+    this.shieldGlowMesh.visible = false;
+    this.bunny.add(this.shieldGlowMesh);
   }
 
-  /** Build expressive, cute 3D bunny mascot */
-  private buildBunny(): void {
-    const fur = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.65 });
-    const innerPink = new THREE.MeshStandardMaterial({ color: '#ff9abf', roughness: 0.5 });
-    const darkEye = new THREE.MeshStandardMaterial({ color: '#16192b', roughness: 0.1 });
-    const eyeHighlight = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+  /** Load User's custom 3D Bunny GLB Model */
+  private loadBunnyModel(): void {
+    const loader = new GLTFLoader();
+    loader.load(
+      'assets/bunny-model.glb',
+      (gltf) => {
+        // Compute bounding box to normalize scale and center ground contact
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
 
-    // Body
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 22, 18), fur);
-    body.scale.set(1, 1.12, 0.88);
-    body.position.y = 0.55;
-    body.castShadow = true;
+        // Normalize rabbit height to ~1.65 units
+        const targetHeight = 1.65;
+        const scale = targetHeight / (size.y || 1);
+        gltf.scene.scale.setScalar(scale);
 
-    // Head
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.46, 20, 16), fur);
-    head.position.set(0.42, 1.18, 0);
-    head.castShadow = true;
+        // Center on X and Z, and place feet right on y=0
+        gltf.scene.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
 
-    // Big expressive eyes
-    const eyeGeo = new THREE.SphereGeometry(0.16, 16, 12);
-    const eyeL = new THREE.Mesh(eyeGeo, darkEye);
-    eyeL.position.set(0.72, 1.28, -0.2);
-    const eyeR = eyeL.clone();
-    eyeR.position.z = 0.2;
+        // Rotate rabbit so it faces right (+X direction of running)
+        gltf.scene.rotation.y = Math.PI * 0.5;
 
-    // White shine gleam on eyes
-    const shineGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    const shineL = new THREE.Mesh(shineGeo, eyeHighlight);
-    shineL.position.set(0.82, 1.34, -0.22);
-    const shineR = shineL.clone();
-    shineR.position.z = 0.18;
+        // Enable shadows on all sub-meshes
+        gltf.scene.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
 
-    // Nose
-    const noseGeo = new THREE.SphereGeometry(0.07, 10, 8);
-    const nose = new THREE.Mesh(noseGeo, innerPink);
-    nose.position.set(0.84, 1.14, 0);
+        // Animations if available
+        if (gltf.animations && gltf.animations.length > 0) {
+          this.mixer = new THREE.AnimationMixer(gltf.scene);
+          const action = this.mixer.clipAction(gltf.animations[0]);
+          action.play();
+        }
 
-    // Front Teeth
-    const toothGeo = new THREE.BoxGeometry(0.06, 0.1, 0.08);
-    const tooth = new THREE.Mesh(toothGeo, eyeHighlight);
-    tooth.position.set(0.81, 1.04, 0);
-
-    // Big Ears
-    const earGeo = new THREE.CapsuleGeometry(0.13, 0.68, 6, 14);
-    const leftEar = new THREE.Mesh(earGeo, fur);
-    leftEar.position.set(0.24, 1.82, -0.2);
-    leftEar.rotation.z = -0.2;
-
-    const leftInner = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.52, 6, 10), innerPink);
-    leftInner.position.set(0.25, 1.82, -0.19);
-    leftInner.rotation.z = -0.2;
-
-    const rightEar = leftEar.clone();
-    rightEar.position.z = 0.2;
-    rightEar.rotation.z = 0.2;
-
-    const rightInner = leftInner.clone();
-    rightInner.position.z = 0.19;
-    rightInner.rotation.z = 0.2;
-
-    // Fluffy tail
-    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 12), innerPink);
-    tail.position.set(-0.58, 0.65, 0);
-
-    [body, head, eyeL, eyeR, shineL, shineR, nose, tooth, leftEar, leftInner, rightEar, rightInner, tail].forEach(
-      (part) => {
-        part.castShadow = true;
-        this.bunny.add(part);
+        // Swap out fallback bunny with loaded GLB model
+        if (this.fallbackBunny) {
+          this.modelWrapper.remove(this.fallbackBunny);
+          this.fallbackBunny = undefined;
+        }
+        this.modelWrapper.add(gltf.scene);
+      },
+      undefined,
+      (err) => {
+        console.warn('Could not load bunny GLB model, using arcade fallback:', err);
       },
     );
+  }
 
-    this.scene.add(this.bunny);
+  /** Expressive low-poly fallback bunny displayed before GLB loads */
+  private buildFallbackBunny(): void {
+    this.fallbackBunny = new THREE.Group();
+    const fur = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6 });
+    const pink = new THREE.MeshStandardMaterial({ color: '#ff9abf', roughness: 0.5 });
+    const eyeMat = new THREE.MeshStandardMaterial({ color: '#16192b', roughness: 0.1 });
+
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 14), fur);
+    body.position.y = 0.6;
+    body.scale.set(1, 1.1, 0.9);
+    body.castShadow = true;
+    this.fallbackBunny.add(body);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.46, 16, 14), fur);
+    head.position.set(0.38, 1.25, 0);
+    head.castShadow = true;
+    this.fallbackBunny.add(head);
+
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), eyeMat);
+    leftEye.position.set(0.65, 1.34, -0.18);
+    const rightEye = leftEye.clone();
+    rightEye.position.z = 0.18;
+    this.fallbackBunny.add(leftEye, rightEye);
+
+    const earGeo = new THREE.CapsuleGeometry(0.12, 0.65, 6, 10);
+    const leftEar = new THREE.Mesh(earGeo, fur);
+    leftEar.position.set(0.2, 1.88, -0.2);
+    leftEar.rotation.z = -0.2;
+    const rightEar = leftEar.clone();
+    rightEar.position.z = 0.2;
+    this.fallbackBunny.add(leftEar, rightEar);
+
+    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), pink);
+    tail.position.set(-0.55, 0.65, 0);
+    this.fallbackBunny.add(tail);
+
+    this.modelWrapper.add(this.fallbackBunny);
   }
 
   // ---------------------------------------------------------------------------
-  // Game loop
+  // Recursive Dynamic Platforms & Items Generation
+  // ---------------------------------------------------------------------------
+
+  private rebuildAllPlatforms(): void {
+    // Remove existing platforms
+    for (const p of this.platformBlocks) {
+      this.scene.remove(p.group);
+    }
+    this.platformBlocks.length = 0;
+
+    // Start with safe spawn platform
+    this.rightmostX = -3;
+    const initialWidth = 9.5;
+    const startPlatform = this.createPlatformBlock(0, 0, initialWidth, false, false, false);
+    this.platformBlocks.push(startPlatform);
+    this.rightmostX = startPlatform.x + startPlatform.width / 2;
+
+    // Generate pool of ~14 forward platforms
+    for (let i = 1; i < 14; i++) {
+      const p = this.generateNextPlatform(i);
+      this.platformBlocks.push(p);
+    }
+  }
+
+  private generateNextPlatform(stepIndex: number): PlatformBlock {
+    // Level difficulty scaling
+    const isTutorial = this.level.id === 1;
+    const minWidth = isTutorial ? 5.5 : Math.max(3.2, 6.0 - this.level.id * 0.55);
+    const maxWidth = isTutorial ? 8.5 : Math.max(4.5, 7.5 - this.level.id * 0.4);
+    const width = minWidth + Math.random() * (maxWidth - minWidth);
+
+    const minGap = isTutorial ? 1.4 : 1.8 + this.level.id * 0.35;
+    const maxGap = isTutorial ? 2.8 : 3.0 + this.level.id * 0.55;
+    const gap = minGap + Math.random() * (maxGap - minGap);
+
+    const x = this.rightmostX + gap + width / 2;
+
+    // Gentle undulating height variation
+    const heightVariation = isTutorial ? 0.6 : 1.4;
+    const y = Math.sin(stepIndex * 0.8) * heightVariation + (Math.random() * 0.4 - 0.2);
+
+    // Collectibles & Hazards chance
+    const spawnCoins = Math.random() < 0.65;
+    const spawnCarrot = isTutorial ? stepIndex === 3 || stepIndex === 8 : Math.random() < 0.22;
+    const allowHazard = isTutorial ? stepIndex >= 4 : stepIndex >= 2 && Math.random() < (0.35 + this.level.id * 0.1);
+
+    const block = this.createPlatformBlock(x, y, width, allowHazard, spawnCoins, spawnCarrot);
+    this.rightmostX = x + width / 2;
+    return block;
+  }
+
+  private createPlatformBlock(
+    x: number,
+    y: number,
+    width: number,
+    hasHazard: boolean,
+    hasCoins: boolean,
+    hasCarrot: boolean,
+  ): PlatformBlock {
+    const group = new THREE.Group();
+    group.position.set(x, y, 0);
+
+    // Main 3D platform body
+    const baseGeo = new THREE.BoxGeometry(width, 0.85, 3.4);
+    const baseMat = new THREE.MeshStandardMaterial({
+      color: this.level.accent,
+      roughness: 0.4,
+      metalness: 0.18,
+    });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    baseMesh.castShadow = true;
+    baseMesh.receiveShadow = true;
+    group.add(baseMesh);
+
+    // Glowing Neon top plate
+    const topPlateGeo = new THREE.BoxGeometry(width - 0.08, 0.1, 3.25);
+    const topPlateMat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      emissive: this.level.accent,
+      emissiveIntensity: 0.4,
+      roughness: 0.2,
+    });
+    const topPlate = new THREE.Mesh(topPlateGeo, topPlateMat);
+    topPlate.position.y = 0.43;
+    group.add(topPlate);
+
+    let hazard: HazardBlock | undefined;
+    const coins: CoinItem[] = [];
+    let carrot: CarrotItem | undefined;
+
+    // Spawn Hazards (Spikes / Moving blocks)
+    if (hasHazard && width > 4.0) {
+      const isMoving = this.level.id >= 3 && Math.random() < 0.4;
+      const hazWidth = 0.6;
+      const hazHeight = 0.95;
+      const hazGeo = new THREE.BoxGeometry(hazWidth, hazHeight, 2.2);
+      const hazMesh = new THREE.Mesh(hazGeo, this.hazardMaterial);
+      hazMesh.castShadow = true;
+      hazMesh.position.set(0, 0.42 + hazHeight / 2, 0);
+      group.add(hazMesh);
+
+      hazard = {
+        mesh: hazMesh,
+        x: x,
+        y: y + 0.42 + hazHeight / 2,
+        width: hazWidth,
+        height: hazHeight,
+        isMoving,
+        moveSpeed: 1.8 + Math.random() * 1.5,
+        moveRange: 0.6,
+        initialY: y + 0.42 + hazHeight / 2,
+      };
+    }
+
+    // Spawn Coins (Floating spinning golden disks)
+    if (hasCoins && !hasHazard) {
+      const count = Math.min(3, Math.floor(width / 1.8));
+      const step = width / (count + 1);
+      for (let i = 1; i <= count; i++) {
+        const localX = -width / 2 + step * i;
+        const coinMesh = new THREE.Mesh(this.coinGeometry, this.coinMaterial);
+        coinMesh.castShadow = true;
+        coinMesh.rotation.x = Math.PI * 0.5;
+        const baseY = y + 1.25;
+        coinMesh.position.set(localX, 1.25, 0);
+        group.add(coinMesh);
+
+        coins.push({
+          mesh: coinMesh,
+          x: x + localX,
+          y: baseY,
+          baseY: baseY,
+          phase: Math.random() * Math.PI * 2,
+          active: true,
+        });
+      }
+    }
+
+    // Spawn Carrot Power-Up (Shield buff)
+    if (hasCarrot && !hasHazard) {
+      const carrotGroup = this.buildCarrotMesh();
+      const localX = (Math.random() - 0.5) * (width * 0.5);
+      const baseY = y + 1.35;
+      carrotGroup.position.set(localX, 1.35, 0);
+      group.add(carrotGroup);
+
+      carrot = {
+        group: carrotGroup,
+        x: x + localX,
+        y: baseY,
+        baseY: baseY,
+        phase: Math.random() * Math.PI * 2,
+        active: true,
+      };
+    }
+
+    this.scene.add(group);
+
+    return {
+      group,
+      baseMesh,
+      topPlate,
+      x,
+      y,
+      width,
+      hazard,
+      coins,
+      carrot,
+    };
+  }
+
+  /** Build 3D Carrot collectible model */
+  private buildCarrotMesh(): THREE.Group {
+    const carrotGroup = new THREE.Group();
+
+    // Orange tapered body
+    const bodyGeo = new THREE.ConeGeometry(0.24, 0.75, 14);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: '#ff7700',
+      emissive: '#ff4400',
+      emissiveIntensity: 0.35,
+      roughness: 0.3,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.rotation.x = Math.PI; // point downwards
+    body.castShadow = true;
+    carrotGroup.add(body);
+
+    // Green leafy tufts on top
+    const leafMat = new THREE.MeshStandardMaterial({ color: '#33dd33', roughness: 0.3 });
+    const leafGeo = new THREE.ConeGeometry(0.09, 0.35, 6);
+    for (let i = 0; i < 3; i++) {
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      leaf.position.set((i - 1) * 0.08, 0.42, 0);
+      leaf.rotation.z = (i - 1) * 0.28;
+      carrotGroup.add(leaf);
+    }
+
+    return carrotGroup;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Particle Systems
+  // ---------------------------------------------------------------------------
+
+  private initParticles(): void {
+    for (let i = 0; i < 40; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0 });
+      const mesh = new THREE.Mesh(this.particleGeo, mat);
+      mesh.visible = false;
+      this.scene.add(mesh);
+      this.particles.push({
+        mesh,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        life: 0,
+        maxLife: 1,
+        active: false,
+      });
+    }
+  }
+
+  private spawnDustParticles(x: number, y: number): void {
+    let count = 0;
+    for (const p of this.particles) {
+      if (!p.active) {
+        p.active = true;
+        p.mesh.visible = true;
+        p.mesh.position.set(x + (Math.random() - 0.5) * 0.4, y + 0.1, (Math.random() - 0.5) * 0.4);
+        p.vx = (Math.random() - 0.5) * 2.5;
+        p.vy = Math.random() * 1.5 + 0.5;
+        p.vz = (Math.random() - 0.5) * 1.5;
+        p.life = 0;
+        p.maxLife = 0.35 + Math.random() * 0.2;
+        (p.mesh.material as THREE.MeshBasicMaterial).color.set('#d0e0ff');
+        (p.mesh.material as THREE.MeshBasicMaterial).opacity = 0.7;
+        count++;
+        if (count >= 7) break;
+      }
+    }
+  }
+
+  private spawnCoinParticles(x: number, y: number): void {
+    let count = 0;
+    for (const p of this.particles) {
+      if (!p.active) {
+        p.active = true;
+        p.mesh.visible = true;
+        p.mesh.position.set(x, y, 0);
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2.5 + Math.random() * 3.0;
+        p.vx = Math.cos(angle) * spd;
+        p.vy = Math.sin(angle) * spd + 1.5;
+        p.vz = (Math.random() - 0.5) * 2.0;
+        p.life = 0;
+        p.maxLife = 0.45;
+        (p.mesh.material as THREE.MeshBasicMaterial).color.set('#ffd214');
+        (p.mesh.material as THREE.MeshBasicMaterial).opacity = 0.9;
+        count++;
+        if (count >= 8) break;
+      }
+    }
+  }
+
+  private spawnShieldBreakParticles(x: number, y: number): void {
+    let count = 0;
+    for (const p of this.particles) {
+      if (!p.active) {
+        p.active = true;
+        p.mesh.visible = true;
+        p.mesh.position.set(x, y + 0.8, 0);
+        p.vx = (Math.random() - 0.5) * 6.0;
+        p.vy = (Math.random() - 0.5) * 6.0;
+        p.vz = (Math.random() - 0.5) * 3.0;
+        p.life = 0;
+        p.maxLife = 0.6;
+        (p.mesh.material as THREE.MeshBasicMaterial).color.set('#00f0ff');
+        (p.mesh.material as THREE.MeshBasicMaterial).opacity = 0.85;
+        count++;
+        if (count >= 14) break;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game Loop & Physics Update
   // ---------------------------------------------------------------------------
 
   private animate = (): void => {
@@ -264,86 +671,226 @@ export class GameEngine {
     const now = performance.now();
     const delta = Math.min(0.04, (now - this.lastTimestamp) / 1000);
     this.lastTimestamp = now;
+
     this.update(delta);
     this.renderer.render(this.scene, this.camera);
   };
 
   private update(delta: number): void {
-    this.jumpCooldown = Math.max(0, this.jumpCooldown - delta);
+    const time = performance.now() * 0.001;
 
-    // Move bunny right and apply gravity
+    // Cooldowns & Timers
+    this.jumpCooldown = Math.max(0, this.jumpCooldown - delta);
+    this.invulnerableTimer = Math.max(0, this.invulnerableTimer - delta);
+
+    if (this.shieldActive) {
+      this.shieldTimer -= delta;
+      if (this.shieldTimer <= 0) {
+        this.shieldActive = false;
+        this.shieldMesh.visible = false;
+        this.shieldGlowMesh.visible = false;
+        this.onEvent?.('shield-expire');
+      } else {
+        // Shield pulse & blink when about to expire
+        this.shieldMesh.visible = this.shieldTimer > 2.0 || Math.floor(this.shieldTimer * 8) % 2 === 0;
+        this.shieldGlowMesh.visible = this.shieldMesh.visible;
+        const pulse = 1.0 + Math.sin(time * 9) * 0.06;
+        this.shieldMesh.scale.setScalar(pulse);
+        this.shieldGlowMesh.scale.setScalar(pulse * 1.08);
+      }
+    }
+
+    // Bunny Forward Movement & Gravity
     this.bunny.position.x += this.runSpeed * delta;
-    this.velocityY -= 17.5 * delta;
+    this.distance = Math.max(0, Math.floor(this.bunny.position.x));
+
+    this.velocityY -= 18.5 * delta;
     this.bunny.position.y += this.velocityY * delta;
     this.grounded = false;
-    this.bunny.rotation.z = Math.max(-0.32, Math.min(0.32, -this.velocityY * 0.035));
 
-    // Dynamic camera smooth follow
-    const targetCamX = this.bunny.position.x + 5.2;
-    this.camera.position.x += (targetCamX - this.camera.position.x) * 0.12;
+    // Squash & stretch recovery spring
+    this.squashTime = Math.max(0, this.squashTime - delta * 4.5);
+    const currentScaleY = THREE.MathUtils.lerp(1.0, 0.7, this.squashTime);
+    const currentScaleXZ = THREE.MathUtils.lerp(1.0, 1.25, this.squashTime);
+    this.modelWrapper.scale.set(currentScaleXZ, currentScaleY, currentScaleXZ);
+
+    // Tilt bunny according to jump velocity
+    const targetTilt = Math.max(-0.35, Math.min(0.35, -this.velocityY * 0.032));
+    this.bunny.rotation.z += (targetTilt - this.bunny.rotation.z) * 0.2;
+
+    // Model animation mixer update
+    if (this.mixer) {
+      this.mixer.update(delta);
+    }
+
+    // Camera Smooth Tracking
+    const targetCamX = this.bunny.position.x + 5.0;
+    this.camera.position.x += (targetCamX - this.camera.position.x) * 0.14;
     this.camera.lookAt(this.camera.position.x - 1.2, 2.0, 0);
-    this.light.position.x = this.camera.position.x - 1.5;
+    this.dirLight.position.x = this.camera.position.x - 1.5;
 
-    // Platform collision — snap onto top surface when falling
-    for (const platform of this.platformMeshes) {
-      const spec = platform.userData['spec'] as { x: number; y: number; width: number };
-      const top = spec.y + 0.375;
+    // Platform Collisions & Snapping
+    const bunnyBottom = this.bunny.position.y;
+    for (const block of this.platformBlocks) {
+      const top = block.y + 0.425;
       const withinX =
-        this.bunny.position.x > spec.x - spec.width / 2 + 0.2 &&
-        this.bunny.position.x < spec.x + spec.width / 2 - 0.2;
-      if (
-        withinX &&
-        this.velocityY <= 0 &&
-        this.bunny.position.y <= top + 0.85 &&
-        this.bunny.position.y >= top + 0.15
-      ) {
-        this.bunny.position.y = top + 0.85;
+        this.bunny.position.x > block.x - block.width / 2 + 0.15 &&
+        this.bunny.position.x < block.x + block.width / 2 - 0.15;
+
+      if (withinX && this.velocityY <= 0 && bunnyBottom <= top + 0.45 && bunnyBottom >= top - 0.35) {
+        // Landing event
+        if (!this.grounded && this.velocityY < -2.0) {
+          this.audio.playLand();
+          this.spawnDustParticles(this.bunny.position.x, top);
+          this.squashTime = 1.0;
+        }
+        this.bunny.position.y = top;
         this.velocityY = 0;
         this.grounded = true;
         this.bunny.rotation.z = 0;
       }
-    }
 
-    // Obstacle collision — touching a red block respawns the bunny
-    for (const obstacle of this.obstacleMeshes) {
-      const spec = obstacle.userData['spec'] as { x: number; width: number; height: number };
-      const halfW = spec.width / 2 + 0.34;
-      const withinX = Math.abs(this.bunny.position.x - spec.x) < halfW;
-      const belowTop = this.bunny.position.y < spec.height + 0.85;
-      if (withinX && belowTop) {
-        this.onEvent?.('hit');
-        this.placeBunnyAtStart();
-        return;
+      // Check Hazard Collisions
+      if (block.hazard) {
+        const haz = block.hazard;
+        // Moving obstacle logic
+        if (haz.isMoving) {
+          haz.mesh.position.y = 0.42 + haz.height / 2 + Math.sin(time * haz.moveSpeed) * haz.moveRange;
+          haz.y = block.y + haz.mesh.position.y;
+        }
+
+        const withinHazX = Math.abs(this.bunny.position.x - haz.x) < haz.width / 2 + 0.35;
+        const withinHazY = Math.abs(this.bunny.position.y + 0.7 - haz.y) < haz.height / 2 + 0.6;
+
+        if (withinHazX && withinHazY && this.invulnerableTimer <= 0) {
+          if (this.shieldActive) {
+            // Carrot Shield saves the rabbit!
+            this.shieldActive = false;
+            this.shieldMesh.visible = false;
+            this.shieldGlowMesh.visible = false;
+            this.invulnerableTimer = 0.9;
+            this.audio.playShieldBreak();
+            this.spawnShieldBreakParticles(this.bunny.position.x, this.bunny.position.y);
+            this.onEvent?.('shield-break');
+          } else {
+            // Unshielded crash
+            this.audio.playHit();
+            this.onEvent?.('hit');
+            this.placeBunnyAtStart();
+            return;
+          }
+        }
+      }
+
+      // Check Coins Collision & Bobbing
+      for (const coin of block.coins) {
+        if (coin.active) {
+          coin.mesh.rotation.z += delta * 3.5;
+          coin.mesh.position.y = 1.25 + Math.sin(time * 4.5 + coin.phase) * 0.14;
+
+          const dist = Math.hypot(this.bunny.position.x - coin.x, (this.bunny.position.y + 0.7) - coin.y);
+          if (dist < 0.9) {
+            coin.active = false;
+            coin.mesh.visible = false;
+            this.score++;
+            this.audio.playCoinCollect();
+            this.spawnCoinParticles(coin.x, coin.y);
+            this.onEvent?.('coin');
+          }
+        }
+      }
+
+      // Check Carrot Power-Up Collision & Bobbing
+      if (block.carrot && block.carrot.active) {
+        const carrot = block.carrot;
+        carrot.group.rotation.y += delta * 2.8;
+        carrot.group.position.y = 1.35 + Math.sin(time * 3.5 + carrot.phase) * 0.15;
+
+        const dist = Math.hypot(this.bunny.position.x - carrot.x, (this.bunny.position.y + 0.7) - carrot.y);
+        if (dist < 1.05) {
+          carrot.active = false;
+          carrot.group.visible = false;
+          this.shieldActive = true;
+          this.shieldTimer = 8.0;
+          this.shieldMesh.visible = true;
+          this.shieldGlowMesh.visible = true;
+          this.audio.playCarrotCollect();
+          this.spawnCoinParticles(carrot.x, carrot.y);
+          this.onEvent?.('carrot');
+        }
       }
     }
 
-    // Win — bunny clears the end of the last platform
-    const goal = this.level.platforms[this.level.platforms.length - 1];
-    if (this.bunny.position.x > goal.x + goal.width / 2 - 0.2) {
+    // Recycle platforms going off-screen to the right
+    this.recyclePlatforms();
+
+    // Update active particles
+    this.updateParticles(delta);
+
+    // Goal Cleared Check
+    if (this.bunny.position.x >= this.targetDistance) {
       this.running = false;
+      this.audio.playWin();
       this.onEvent?.('won');
       return;
     }
 
-    // Fall — bunny dropped below the scene
-    if (this.bunny.position.y < -5) {
+    // Pit Fall Check
+    if (this.bunny.position.y < -5.5) {
+      this.audio.playFall();
       this.onEvent?.('fell');
       this.placeBunnyAtStart();
     }
   }
 
-  /** Teleport the bunny back to the start position, keeping physics clean. */
+  /** Recycle leftmost platform that went behind camera */
+  private recyclePlatforms(): void {
+    const cullX = this.camera.position.x - 18;
+    for (let i = 0; i < this.platformBlocks.length; i++) {
+      const block = this.platformBlocks[i];
+      if (block.x + block.width / 2 < cullX) {
+        // Remove old platform from scene
+        this.scene.remove(block.group);
+
+        // Generate brand new platform at the front
+        const newBlock = this.generateNextPlatform(Math.floor(this.rightmostX / 7));
+        this.platformBlocks[i] = newBlock;
+      }
+    }
+  }
+
+  private updateParticles(delta: number): void {
+    for (const p of this.particles) {
+      if (p.active) {
+        p.life += delta;
+        if (p.life >= p.maxLife) {
+          p.active = false;
+          p.mesh.visible = false;
+        } else {
+          p.mesh.position.x += p.vx * delta;
+          p.mesh.position.y += p.vy * delta;
+          p.mesh.position.z += p.vz * delta;
+          p.vy -= 9.8 * delta;
+          const ratio = 1 - p.life / p.maxLife;
+          (p.mesh.material as THREE.MeshBasicMaterial).opacity = ratio * 0.8;
+          p.mesh.scale.setScalar(ratio);
+        }
+      }
+    }
+  }
+
+  /** Reset bunny back to start */
   private placeBunnyAtStart(): void {
-    this.bunny.position.set(-2.4, 1.05, 0);
+    this.bunny.position.set(-2.0, 1.1, 0);
     this.bunny.rotation.z = 0;
     this.velocityY = 0;
     this.grounded = true;
-    this.jumpCooldown = 0.4;
+    this.jumpCooldown = 0.35;
 
-    // Reset camera position to initial framing
-    this.camera.position.set(4, 7.8, 14.5);
+    // Reset camera position
+    this.camera.position.set(4, 7.6, 14.2);
     this.camera.lookAt(4, 1.8, 0);
-    this.light.position.set(4, 12, 8);
+    this.dirLight.position.set(6, 14, 10);
   }
 
   private resize = (): void => {

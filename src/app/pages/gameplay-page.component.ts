@@ -13,19 +13,45 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
   imports: [RouterLink, DecimalPipe, LangSwitcherComponent],
   template: `
     <main class="game-shell" [style.--stage-accent]="level.accent">
-      <!-- 3D Canvas Stage -->
-      <div #stage class="stage" aria-label="3D game view"></div>
+      <!-- 3D Canvas Stage (Click / Tap to jump fallback) -->
+      <div #stage class="stage" aria-label="3D game view" (click)="onStageTap()"></div>
 
       <!-- Top Arcade Game HUD -->
       <header class="game-hud-top">
-        <a routerLink="/levels" class="hud-btn-back">
-          <span class="arrow">←</span>
-          <span>{{ i18n.t.stages }}</span>
-        </a>
+        <div class="hud-top-left">
+          <a routerLink="/levels" class="hud-btn-back">
+            <span class="arrow">←</span>
+            <span>{{ i18n.t.stages }}</span>
+          </a>
 
-        <div class="stage-pill">
-          <span class="stage-tag">{{ i18n.t.stages }} 0{{ level.id }}</span>
-          <span class="stage-title">{{ getLevelName(level.id) }}</span>
+          <div class="stage-pill">
+            <span class="stage-tag">{{ i18n.t.stages }} 0{{ level.id }}</span>
+            <span class="stage-title">{{ getLevelName(level.id) }}</span>
+          </div>
+        </div>
+
+        <!-- Center Score & Power-Up Stats -->
+        <div class="hud-center-stats">
+          <!-- Coins Counter -->
+          <div class="hud-stat-pill coin-pill" title="Collected coins">
+            <span class="pill-icon">🪙</span>
+            <span class="pill-val">{{ currentScore() }}</span>
+          </div>
+
+          <!-- Carrot Shield Active Indicator -->
+          @if (shieldActive()) {
+            <div class="hud-stat-pill shield-pill" title="Carrot Shield active!">
+              <span class="pill-icon">🥕</span>
+              <span class="pill-tag">{{ i18n.t.shieldActive }}</span>
+              <span class="pill-val">{{ shieldSeconds() }}s</span>
+            </div>
+          }
+
+          <!-- Distance meters -->
+          <div class="hud-stat-pill distance-pill" title="Run distance">
+            <span class="pill-icon">🏃</span>
+            <span class="pill-val">{{ currentDistance() }} {{ i18n.t.distanceMeters }}</span>
+          </div>
         </div>
 
         <div class="hud-top-right">
@@ -68,8 +94,8 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
         <p class="cockpit-msg">{{ voiceMessage() }}</p>
       </aside>
 
-      <!-- Tip Bubble -->
-      <div class="game-tip-pill">
+      <!-- Tip Bubble (Louder = Higher + tap fallback) -->
+      <div class="game-tip-pill" (click)="onStageTap()">
         <span class="tip-sound-icon">🔊</span>
         <span><b>{{ i18n.t.louderHigherTip }}</b></span>
       </div>
@@ -89,9 +115,14 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
               <p class="dialog-desc">
                 {{ voice.message() || i18n.t.micPermissionInfo }}
               </p>
-              <button class="btn-arcade cta-modal" (click)="calibrate()">
-                <span>{{ i18n.t.enableMic }}</span>
-              </button>
+              <div class="cal-actions-stack">
+                <button class="btn-arcade cta-modal" (click)="calibrate()">
+                  <span>{{ i18n.t.enableMic }}</span>
+                </button>
+                <button class="btn-arcade btn-arcade-secondary cta-modal" (click)="startLevelWithoutMic()">
+                  <span>{{ i18n.t.playGame }} (Space / Tap)</span>
+                </button>
+              </div>
             }
 
             @if (voice.state() === 'requesting') {
@@ -142,6 +173,17 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
               {{ getConqueredText() }}
             </p>
 
+            <div class="victory-stats-banner">
+              <div class="vic-stat">
+                <span class="vic-stat-label">{{ i18n.t.coins }}</span>
+                <span class="vic-stat-val">🪙 {{ currentScore() }}</span>
+              </div>
+              <div class="vic-stat">
+                <span class="vic-stat-label">{{ i18n.t.distanceMeters }}</span>
+                <span class="vic-stat-val">🏃 {{ currentDistance() }}m</span>
+              </div>
+            </div>
+
             <div class="result-actions">
               <button class="btn-arcade" (click)="restart()">
                 <span>{{ i18n.t.playAgain }}</span>
@@ -156,8 +198,8 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
 
       <!-- Gameplay In-Game Toast Notice -->
       @if (notice()) {
-        <div class="game-notice-toast">
-          <span class="toast-icon">💥</span>
+        <div class="game-notice-toast" [class.carrot-toast]="isCarrotNotice()">
+          <span class="toast-icon">{{ noticeIcon() }}</span>
           <span>{{ notice() }}</span>
         </div>
       }
@@ -172,17 +214,26 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly level: GameLevel;
   readonly modal = signal<'calibration' | 'results' | null>('calibration');
   readonly notice = signal('');
+  readonly noticeIcon = signal('💥');
+  readonly isCarrotNotice = signal(false);
+
+  // Dynamic game stats signals
+  readonly currentScore = signal(0);
+  readonly currentDistance = signal(0);
+  readonly shieldActive = signal(false);
+  readonly shieldSeconds = signal(0);
+
   readonly voicePercent = computed(() => Math.round(this.voice.tick() * 100));
   readonly voiceMessage = computed(() => {
-    if (this.voice.state() !== 'ready') return this.voice.message();
+    if (this.voice.state() !== 'ready') return this.i18n.t.tapOrShout;
     const pct = this.voicePercent();
-    if (pct >= 50) return this.i18n.t.megaPower;
+    if (pct >= 55) return this.i18n.t.megaPower;
     if (pct >= 15) return this.i18n.t.jumping;
     return this.i18n.t.listening;
   });
 
   private engine?: GameEngine;
-  private voiceLoop?: number;
+  private gameSyncLoop?: number;
 
   constructor(private readonly route: ActivatedRoute, readonly voice: VoiceInputService) {
     this.level = getLevel(Number(this.route.snapshot.paramMap.get('id')));
@@ -212,13 +263,29 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     await this.voice.beginCalibration();
   }
 
-  startLevel(): void {
-    if (this.voice.state() !== 'ready' || !this.engine) return;
-    this.stopVoiceLoop();
+  /** Tap / click jump fallback */
+  onStageTap(): void {
+    if (this.modal() === null && this.engine) {
+      this.engine.jump(0.7);
+    }
+  }
+
+  startLevelWithoutMic(): void {
+    if (!this.engine) return;
+    this.stopGameLoop();
     this.modal.set(null);
     this.engine.reset();
     this.engine.start((event) => this.onGameEvent(event));
-    this.startVoiceLoop();
+    this.startGameLoop();
+  }
+
+  startLevel(): void {
+    if (this.voice.state() !== 'ready' || !this.engine) return;
+    this.stopGameLoop();
+    this.modal.set(null);
+    this.engine.reset();
+    this.engine.start((event) => this.onGameEvent(event));
+    this.startGameLoop();
   }
 
   openCalibration(): void {
@@ -226,17 +293,18 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   restart(): void {
-    this.stopVoiceLoop();
+    this.stopGameLoop();
     this.engine?.dispose();
     this.engine = new GameEngine(this.stage!.nativeElement, this.level);
-    this.voice.stop();
-    this.voice.state.set('idle');
-    this.voice.message.set('');
+    this.currentScore.set(0);
+    this.currentDistance.set(0);
+    this.shieldActive.set(false);
+    this.shieldSeconds.set(0);
     this.modal.set('calibration');
   }
 
   ngOnDestroy(): void {
-    this.stopVoiceLoop();
+    this.stopGameLoop();
     this.engine?.dispose();
     this.voice.stop();
   }
@@ -249,34 +317,73 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     return Math.min(100, Math.max(12, power * 100 * multiplier));
   }
 
-  private startVoiceLoop(): void {
+  private startGameLoop(): void {
     const loop = (): void => {
-      const power = this.voice.tick();
-      if (power >= 0.15) {
-        this.engine?.jump(power);
+      // 1. Voice input polling
+      if (this.voice.state() === 'ready') {
+        const power = this.voice.tick();
+        if (power >= 0.15) {
+          this.engine?.jump(power);
+        }
       }
-      this.voiceLoop = requestAnimationFrame(loop);
+
+      // 2. Sync UI stats from Engine
+      if (this.engine) {
+        this.currentScore.set(this.engine.score);
+        this.currentDistance.set(this.engine.distance);
+        this.shieldActive.set(this.engine.shieldActive);
+        this.shieldSeconds.set(Math.ceil(this.engine.shieldTimer));
+      }
+
+      this.gameSyncLoop = requestAnimationFrame(loop);
     };
-    this.voiceLoop = requestAnimationFrame(loop);
+    this.gameSyncLoop = requestAnimationFrame(loop);
   }
 
-  private stopVoiceLoop(): void {
-    if (this.voiceLoop !== undefined) {
-      cancelAnimationFrame(this.voiceLoop);
-      this.voiceLoop = undefined;
+  private stopGameLoop(): void {
+    if (this.gameSyncLoop !== undefined) {
+      cancelAnimationFrame(this.gameSyncLoop);
+      this.gameSyncLoop = undefined;
     }
   }
 
   private onGameEvent(event: GameEvent): void {
     if (event === 'won') {
-      this.stopVoiceLoop();
+      this.stopGameLoop();
       this.modal.set('results');
       return;
     }
-    const msg = event === 'hit'
-      ? this.i18n.t.obstacleHitNotice
-      : this.i18n.t.fellNotice;
-    this.notice.set(msg);
-    window.setTimeout(() => this.notice.set(''), 1800);
+
+    if (event === 'carrot') {
+      this.noticeIcon.set('🥕');
+      this.isCarrotNotice.set(true);
+      this.notice.set(this.i18n.t.carrotBuffNotice);
+      window.setTimeout(() => this.notice.set(''), 2400);
+      return;
+    }
+
+    if (event === 'shield-break') {
+      this.noticeIcon.set('🛡️');
+      this.isCarrotNotice.set(false);
+      this.notice.set(this.i18n.t.shieldBrokenNotice);
+      window.setTimeout(() => this.notice.set(''), 2400);
+      return;
+    }
+
+    if (event === 'hit') {
+      this.noticeIcon.set('💥');
+      this.isCarrotNotice.set(false);
+      this.notice.set(this.i18n.t.obstacleHitNotice);
+      window.setTimeout(() => this.notice.set(''), 1800);
+      return;
+    }
+
+    if (event === 'fell') {
+      this.noticeIcon.set('💨');
+      this.isCarrotNotice.set(false);
+      this.notice.set(this.i18n.t.fellNotice);
+      window.setTimeout(() => this.notice.set(''), 1800);
+      return;
+    }
   }
 }

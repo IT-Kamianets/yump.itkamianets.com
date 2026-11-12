@@ -87,6 +87,12 @@ export interface Translations {
   backToStages: string;
   obstacleHitNotice: string;
   fellNotice: string;
+  coins: string;
+  shieldActive: string;
+  carrotBuffNotice: string;
+  shieldBrokenNotice: string;
+  distanceMeters: string;
+  tapOrShout: string;
 }
 
 const EN: Translations = {
@@ -168,6 +174,12 @@ const EN: Translations = {
   backToStages: 'Back to Stages',
   obstacleHitNotice: 'Obstacle hit! Try that jump again!',
   fellNotice: 'Whoops! Keep your voice up to clear the gap!',
+  coins: 'Coins',
+  shieldActive: 'SHIELD',
+  carrotBuffNotice: '🥕 Carrot Shield Acquired! Obstacles cannot hurt you!',
+  shieldBrokenNotice: '🛡️ Shield broke, but saved you from danger!',
+  distanceMeters: 'm',
+  tapOrShout: 'SHOUT OR PRESS SPACE / TAP TO JUMP!',
 };
 
 const UK: Translations = {
@@ -249,6 +261,12 @@ const UK: Translations = {
   backToStages: 'Назад до рівнів',
   obstacleHitNotice: 'Удар об перешкоду! Спробуй стрибок ще раз!',
   fellNotice: 'Ой! Тримай голос голосніше, щоб не впасти!',
+  coins: 'Монети',
+  shieldActive: 'ЩИТ',
+  carrotBuffNotice: '🥕 Отримано Щит Моркви! Шипи та перешкоди тепер безпечні!',
+  shieldBrokenNotice: '🛡️ Щит розбився, але врятував зайчика від удару!',
+  distanceMeters: 'м',
+  tapOrShout: 'КРИЧИ, АБО НАТИСКАЙ ПРОБІЛ / ЕКРАН ДЛЯ СТРИБКА!',
 };
 
 @Injectable({ providedIn: 'root' })
