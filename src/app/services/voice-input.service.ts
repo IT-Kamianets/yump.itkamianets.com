@@ -5,7 +5,6 @@ export type MicrophoneState = 'idle' | 'requesting' | 'calibrating' | 'ready' | 
 @Injectable({ providedIn: 'root' })
 export class VoiceInputService {
   readonly state = signal<MicrophoneState>('idle');
-  readonly volume = signal(0);
   readonly calibrationProgress = signal(0);
   readonly noiseFloor = signal(0.02);
   readonly message = signal('');
@@ -53,13 +52,11 @@ export class VoiceInputService {
       this.message.set('Stay quiet for a moment…');
 
       const started = performance.now();
-      const calibrationDurationMs = 1500; // 1.5 seconds
+      const calibrationDurationMs = 1200; // 1.2s quick calibration
 
-      // Safety timeout: ensure calibration ALWAYS completes even if frames drop
       if (this.calibrationFallbackTimer) clearTimeout(this.calibrationFallbackTimer);
       this.calibrationFallbackTimer = window.setTimeout(() => {
         if (this.state() === 'calibrating') {
-          this.calibrationProgress.set(1);
           this.finishCalibration();
         }
       }, calibrationDurationMs + 200);
@@ -68,14 +65,12 @@ export class VoiceInputService {
         if (this.state() !== 'calibrating') return;
         const raw = this.readRawVolume();
         this.samples.push(raw);
-        this.setSmoothed(raw);
+        this.smoothing = this.smoothing * 0.8 + raw * 0.2;
 
         const progress = Math.min(1, (now - started) / calibrationDurationMs);
         this.calibrationProgress.set(progress);
 
-        // Complete when 96% reached to avoid any 98-99% rounding lock
-        if (progress >= 0.96) {
-          this.calibrationProgress.set(1);
+        if (progress >= 0.95) {
           this.finishCalibration();
         } else {
           requestAnimationFrame(collect);
@@ -93,17 +88,22 @@ export class VoiceInputService {
   skipCalibration(): void {
     if (this.calibrationFallbackTimer) clearTimeout(this.calibrationFallbackTimer);
     this.noiseFloor.set(0.02);
-    this.state.set('ready');
     this.calibrationProgress.set(1);
+    this.state.set('ready');
     this.message.set('Ready! Shout or speak to jump.');
   }
 
+  /**
+   * Pure polling tick — returns normalized volume [0, 1].
+   * Does NOT write to any Angular Signals to prevent NG0600 errors.
+   */
   tick(): number {
     if (this.state() !== 'ready') return 0;
     const now = performance.now();
     if (now - this.lastSampleAt > 14) {
       this.lastSampleAt = now;
-      this.setSmoothed(this.readRawVolume());
+      const raw = this.readRawVolume();
+      this.smoothing = this.smoothing * 0.8 + raw * 0.2;
     }
     const voiceReference = this.noiseFloor() + 0.16;
     return Math.max(0, Math.min(1, (this.smoothing - this.noiseFloor()) / (voiceReference - this.noiseFloor())));
@@ -146,10 +146,5 @@ export class VoiceInputService {
       sum += val * val;
     }
     return Math.sqrt(sum / len);
-  }
-
-  private setSmoothed(raw: number): void {
-    this.smoothing = this.smoothing * 0.8 + raw * 0.2;
-    this.volume.set(this.smoothing);
   }
 }

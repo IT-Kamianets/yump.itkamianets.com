@@ -241,6 +241,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly currentDistance = signal(0);
   readonly shieldActive = signal(false);
   readonly shieldSeconds = signal(0);
+  readonly voicePercent = signal(0);
 
   readonly isTutorial = computed(() => this.level.id === 1);
 
@@ -298,7 +299,6 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     };
   });
 
-  readonly voicePercent = computed(() => Math.round(this.voice.tick() * 100));
   readonly voiceMessage = computed(() => {
     if (this.voice.state() !== 'ready') return this.i18n.t.tapOrShout;
     const pct = this.voicePercent();
@@ -336,18 +336,18 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   async calibrate(): Promise<void> {
     await this.voice.beginCalibration();
-    // Auto-advance into game 350ms after calibration finishes
     const checkTimer = window.setInterval(() => {
       if (this.voice.state() === 'ready') {
         window.clearInterval(checkTimer);
         if (this.modal() === 'calibration') {
-          window.setTimeout(() => this.startLevel(), 350);
+          window.setTimeout(() => this.startLevel(), 300);
         }
       }
-    }, 100);
+    }, 80);
   }
 
   closeModalAndPlay(): void {
+    this.modal.set(null);
     if (this.voice.state() !== 'ready') {
       this.voice.skipCalibration();
     }
@@ -355,6 +355,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   skipAndPlay(): void {
+    this.modal.set(null);
     this.voice.skipCalibration();
     this.startLevel();
   }
@@ -377,10 +378,10 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   startLevel(): void {
+    this.modal.set(null);
     if (this.voice.state() !== 'ready') {
       this.voice.skipCalibration();
     }
-    this.modal.set(null);
     this.stopGameLoop();
     if (this.engine) {
       this.engine.reset();
@@ -411,7 +412,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   getEqHeight(index: number): number {
-    const power = this.voice.tick();
+    const power = this.voicePercent() / 100;
     if (power < 0.05) return 8;
     const wave = Math.sin(index * 1.2 + performance.now() * 0.015);
     const multiplier = 0.6 + 0.4 * wave;
@@ -423,6 +424,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
       // 1. Voice input polling
       if (this.voice.state() === 'ready') {
         const power = this.voice.tick();
+        this.voicePercent.set(Math.round(power * 100));
         if (power >= 0.15) {
           this.engine?.jump(power);
         }

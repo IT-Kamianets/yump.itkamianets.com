@@ -810,10 +810,10 @@ export class GameEngine {
     for (const block of this.platformBlocks) {
       const top = block.y + 0.425;
       const withinX =
-        this.bunny.position.x > block.x - block.width / 2 + 0.15 &&
-        this.bunny.position.x < block.x + block.width / 2 - 0.15;
+        this.bunny.position.x >= block.x - block.width / 2 - 0.25 &&
+        this.bunny.position.x <= block.x + block.width / 2 + 0.25;
 
-      if (withinX && this.velocityY <= 0 && bunnyBottom <= top + 0.45 && bunnyBottom >= top - 0.35) {
+      if (withinX && this.velocityY <= 0 && bunnyBottom <= top + 0.65 && bunnyBottom >= top - 0.8) {
         // Landing event
         if (!this.grounded && this.velocityY < -2.0) {
           this.audio.playLand();
@@ -960,16 +960,18 @@ export class GameEngine {
 
   /** Reset bunny back to start */
   private placeBunnyAtStart(): void {
-    this.bunny.position.set(-2.0, 1.1, 0);
+    const isTutorial = this.level.id === 1;
+    const startX = isTutorial ? 1.0 : -1.0;
+    this.bunny.position.set(startX, 0.45, 0);
     this.bunny.rotation.z = 0;
     this.velocityY = 0;
     this.grounded = true;
     this.jumpCooldown = 0.35;
 
-    // Reset camera position
-    this.camera.position.set(4, 7.6, 14.2);
-    this.camera.lookAt(4, 1.8, 0);
-    this.dirLight.position.set(6, 14, 10);
+    // Reset camera position directly framing the bunny and starting platforms
+    this.camera.position.set(startX + 4.5, 7.2, 13.8);
+    this.camera.lookAt(startX + 1.0, 1.8, 0);
+    this.dirLight.position.set(startX + 6, 14, 10);
   }
 
   private resize = (): void => {
