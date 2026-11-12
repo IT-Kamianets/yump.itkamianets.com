@@ -114,8 +114,10 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
 
       <!-- Calibration Modal -->
       @if (modal() === 'calibration') {
-        <div class="overlay-backdrop">
-          <section class="arcade-dialog" role="dialog" aria-modal="true" aria-labelledby="cal-title">
+        <div class="overlay-backdrop" role="presentation" (click)="closeModalAndPlay()">
+          <section class="arcade-dialog" role="dialog" aria-modal="true" aria-labelledby="cal-title" (click)="$event.stopPropagation()">
+            <button class="dialog-close-btn" (click)="closeModalAndPlay()" aria-label="Close dialog">✕</button>
+
             <div class="dialog-mascot-wrap">
               <img src="assets/bunny.png" alt="Yump Bunny" class="dialog-mascot" />
             </div>
@@ -334,6 +336,22 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   async calibrate(): Promise<void> {
     await this.voice.beginCalibration();
+    // Auto-advance into game 350ms after calibration finishes
+    const checkTimer = window.setInterval(() => {
+      if (this.voice.state() === 'ready') {
+        window.clearInterval(checkTimer);
+        if (this.modal() === 'calibration') {
+          window.setTimeout(() => this.startLevel(), 350);
+        }
+      }
+    }, 100);
+  }
+
+  closeModalAndPlay(): void {
+    if (this.voice.state() !== 'ready') {
+      this.voice.skipCalibration();
+    }
+    this.startLevel();
   }
 
   skipAndPlay(): void {
@@ -349,20 +367,25 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   startLevelWithoutMic(): void {
-    if (!this.engine) return;
-    this.stopGameLoop();
     this.modal.set(null);
-    this.engine.reset();
-    this.engine.start((event) => this.onGameEvent(event));
+    this.stopGameLoop();
+    if (this.engine) {
+      this.engine.reset();
+      this.engine.start((event) => this.onGameEvent(event));
+    }
     this.startGameLoop();
   }
 
   startLevel(): void {
-    if (this.voice.state() !== 'ready' || !this.engine) return;
-    this.stopGameLoop();
+    if (this.voice.state() !== 'ready') {
+      this.voice.skipCalibration();
+    }
     this.modal.set(null);
-    this.engine.reset();
-    this.engine.start((event) => this.onGameEvent(event));
+    this.stopGameLoop();
+    if (this.engine) {
+      this.engine.reset();
+      this.engine.start((event) => this.onGameEvent(event));
+    }
     this.startGameLoop();
   }
 
