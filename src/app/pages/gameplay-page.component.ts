@@ -309,6 +309,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   private engine?: GameEngine;
   private gameSyncLoop?: number;
+  private calCheckTimer?: number;
 
   constructor(private readonly route: ActivatedRoute, readonly voice: VoiceInputService) {
     this.level = getLevel(Number(this.route.snapshot.paramMap.get('id')));
@@ -336,9 +337,13 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   async calibrate(): Promise<void> {
     await this.voice.beginCalibration();
-    const checkTimer = window.setInterval(() => {
+    if (this.calCheckTimer) window.clearInterval(this.calCheckTimer);
+    this.calCheckTimer = window.setInterval(() => {
       if (this.voice.state() === 'ready') {
-        window.clearInterval(checkTimer);
+        if (this.calCheckTimer) {
+          window.clearInterval(this.calCheckTimer);
+          this.calCheckTimer = undefined;
+        }
         if (this.modal() === 'calibration') {
           window.setTimeout(() => this.startLevel(), 300);
         }
@@ -347,6 +352,10 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   closeModalAndPlay(): void {
+    if (this.calCheckTimer) {
+      window.clearInterval(this.calCheckTimer);
+      this.calCheckTimer = undefined;
+    }
     this.modal.set(null);
     if (this.voice.state() !== 'ready') {
       this.voice.skipCalibration();
@@ -355,6 +364,10 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   skipAndPlay(): void {
+    if (this.calCheckTimer) {
+      window.clearInterval(this.calCheckTimer);
+      this.calCheckTimer = undefined;
+    }
     this.modal.set(null);
     this.voice.skipCalibration();
     this.startLevel();
@@ -406,6 +419,10 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.calCheckTimer) {
+      window.clearInterval(this.calCheckTimer);
+      this.calCheckTimer = undefined;
+    }
     this.stopGameLoop();
     this.engine?.dispose();
     this.voice.stop();

@@ -103,6 +103,7 @@ export class GameEngine {
   private squashTime = 0;
 
   // Materials & Geometries cache
+  private backdropMesh?: THREE.Mesh;
   private coinGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 16);
   private coinMaterial = new THREE.MeshStandardMaterial({
     color: '#ffd214',
@@ -131,15 +132,21 @@ export class GameEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor('#0a0e27');
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
+    this.renderer.domElement.style.display = 'block';
+    this.renderer.domElement.style.position = 'absolute';
+    this.renderer.domElement.style.inset = '0';
     host.appendChild(this.renderer.domElement);
 
     this.buildScene();
     this.initParticles();
     this.loadBunnyModel();
     this.resize();
+    this.renderer.render(this.scene, this.camera);
     window.addEventListener('resize', this.resize);
     window.addEventListener('keydown', this.handleKeyDown);
   }
@@ -221,15 +228,15 @@ export class GameEngine {
   private buildScene(): void {
     this.scene.fog = new THREE.Fog('#0a0e27', 26, 75);
 
-    // Camera initial framing
-    this.camera.position.set(4, 7.6, 14.2);
-    this.camera.lookAt(4, 1.8, 0);
+    // Camera initial framing - comfortably framing the bunny and platforms
+    this.camera.position.set(4, 2.9, 10.4);
+    this.camera.lookAt(3.0, 1.4, 0);
 
     // Dynamic Lighting
     this.scene.add(this.ambientLight);
     this.scene.add(this.hemisphereLight);
 
-    this.dirLight.position.set(6, 14, 10);
+    this.dirLight.position.set(5, 12, 9);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.set(1024, 1024);
     this.dirLight.shadow.camera.near = 0.5;
@@ -241,11 +248,11 @@ export class GameEngine {
     this.scene.add(this.dirLight);
 
     // Deep Space Backdrop with star grid illusion
-    const backdropGeo = new THREE.PlaneGeometry(160, 60);
+    const backdropGeo = new THREE.PlaneGeometry(240, 80);
     const backdropMat = new THREE.MeshBasicMaterial({ color: '#070a1e' });
-    const backdrop = new THREE.Mesh(backdropGeo, backdropMat);
-    backdrop.position.set(30, 10, -14);
-    this.scene.add(backdrop);
+    this.backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
+    this.backdropMesh.position.set(4, 8, -14);
+    this.scene.add(this.backdropMesh);
 
     // Build Shield meshes
     this.buildShieldVisuals();
@@ -337,6 +344,11 @@ export class GameEngine {
           this.fallbackBunny = undefined;
         }
         this.modelWrapper.add(gltf.scene);
+
+        // Render preview if game not running yet
+        if (!this.running) {
+          this.renderer.render(this.scene, this.camera);
+        }
       },
       undefined,
       (err) => {
@@ -799,11 +811,16 @@ export class GameEngine {
       this.mixer.update(delta);
     }
 
-    // Camera Smooth Tracking
-    const targetCamX = this.bunny.position.x + 5.0;
+    // Camera Smooth Tracking - stable height so jumps feel epic and high
+    const targetCamX = this.bunny.position.x + 3.8;
     this.camera.position.x += (targetCamX - this.camera.position.x) * 0.14;
-    this.camera.lookAt(this.camera.position.x - 1.2, 2.0, 0);
-    this.dirLight.position.x = this.camera.position.x - 1.5;
+    this.camera.position.y = 2.9;
+    this.camera.position.z = 10.4;
+    this.camera.lookAt(this.camera.position.x - 1.0, 1.4, 0);
+    this.dirLight.position.x = this.camera.position.x + 1.2;
+    if (this.backdropMesh) {
+      this.backdropMesh.position.x = this.camera.position.x;
+    }
 
     // Platform Collisions & Snapping
     const bunnyBottom = this.bunny.position.y;
@@ -969,9 +986,12 @@ export class GameEngine {
     this.jumpCooldown = 0.35;
 
     // Reset camera position directly framing the bunny and starting platforms
-    this.camera.position.set(startX + 4.5, 7.2, 13.8);
-    this.camera.lookAt(startX + 1.0, 1.8, 0);
-    this.dirLight.position.set(startX + 6, 14, 10);
+    this.camera.position.set(startX + 3.8, 2.9, 10.4);
+    this.camera.lookAt(startX + 0.8, 1.4, 0);
+    this.dirLight.position.set(startX + 5, 12, 9);
+    if (this.backdropMesh) {
+      this.backdropMesh.position.x = this.camera.position.x;
+    }
   }
 
   private resize = (): void => {
@@ -979,6 +999,6 @@ export class GameEngine {
     const height = Math.max(1, this.host.clientHeight);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height, false);
+    this.renderer.setSize(width, height, true);
   };
 }
