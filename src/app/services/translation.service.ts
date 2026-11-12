@@ -93,6 +93,20 @@ export interface Translations {
   shieldBrokenNotice: string;
   distanceMeters: string;
   tapOrShout: string;
+  skipCalibration: string;
+  tutorialStep1Title: string;
+  tutorialStep1Desc: string;
+  tutorialStep2Title: string;
+  tutorialStep2Desc: string;
+  tutorialStep3Title: string;
+  tutorialStep3Desc: string;
+  tutorialStep4Title: string;
+  tutorialStep4Desc: string;
+  tutorialStep5Title: string;
+  tutorialStep5Desc: string;
+  tutorialStep6Title: string;
+  tutorialStep6Desc: string;
+  tutorialGotIt: string;
 }
 
 const EN: Translations = {
@@ -180,6 +194,20 @@ const EN: Translations = {
   shieldBrokenNotice: '🛡️ Shield broke, but saved you from danger!',
   distanceMeters: 'm',
   tapOrShout: 'SHOUT OR PRESS SPACE / TAP TO JUMP!',
+  skipCalibration: 'Skip Calibration ➔',
+  tutorialStep1Title: 'Step 1: Your Voice is the Jump!',
+  tutorialStep1Desc: 'Shout "YUMP!", speak, or tap / press Space to make the bunny hop!',
+  tutorialStep2Title: 'Step 2: Collect Golden Coins!',
+  tutorialStep2Desc: 'Time your jumps over platforms to grab coins for extra score!',
+  tutorialStep3Title: 'Step 3: Louder Voice = Higher Jump!',
+  tutorialStep3Desc: 'A wide gap is ahead! Make a louder shout into the mic to clear it!',
+  tutorialStep4Title: 'Step 4: Grab the Carrot!',
+  tutorialStep4Desc: 'Carrots grant a Neon Shield! It protects you from spikes and hazards!',
+  tutorialStep5Title: 'Step 5: Test the Shield!',
+  tutorialStep5Desc: 'Spikes ahead! Leap over them or crash — your shield will absorb the hit!',
+  tutorialStep6Title: 'Step 6: Great Job! Reach the Finish!',
+  tutorialStep6Desc: 'You mastered voice jumping! Dash to the golden carrot trophy!',
+  tutorialGotIt: 'Got it! ➔',
 };
 
 const UK: Translations = {
@@ -267,6 +295,20 @@ const UK: Translations = {
   shieldBrokenNotice: '🛡️ Щит розбився, але врятував зайчика від удару!',
   distanceMeters: 'м',
   tapOrShout: 'КРИЧИ, АБО НАТИСКАЙ ПРОБІЛ / ЕКРАН ДЛЯ СТРИБКА!',
+  skipCalibration: 'Пропустити калібрування ➔',
+  tutorialStep1Title: 'Крок 1: Твій голос — це стрибок!',
+  tutorialStep1Desc: 'Крикни «ЮМП!», скажи слово, або натисни Пробіл чи екран, щоб стрибнути!',
+  tutorialStep2Title: 'Крок 2: Збирай золоті монетки!',
+  tutorialStep2Desc: 'Розраховуй стрибки над платформами, щоб збирати монетки для рекорду!',
+  tutorialStep3Title: 'Крок 3: Гучніше = вищий стрибок!',
+  tutorialStep3Desc: 'Попереду широка прірва! Крикни голосніше у мікрофон, щоб зробити Мега-стрибок!',
+  tutorialStep4Title: 'Крок 4: Спіймай Морквину!',
+  tutorialStep4Desc: 'Морква дарує Неоновий Щит! Він рятує від шипів та перешкод!',
+  tutorialStep5Title: 'Крок 5: Випробуй Щит!',
+  tutorialStep5Desc: 'Попереду шипи! Перестрибни їх або вдарся — щит поглине удар і врятує зайчика!',
+  tutorialStep6Title: 'Крок 6: Молодець! Біжи до фінішу!',
+  tutorialStep6Desc: 'Ти опанував голосове керування YUMP! Фінішна золота морква вже близько!',
+  tutorialGotIt: 'Зрозуміло! ➔',
 };
 
 @Injectable({ providedIn: 'root' })

@@ -63,6 +63,18 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
         </div>
       </header>
 
+      <!-- Tutorial Live Instruction Card Popup -->
+      @if (isTutorial() && currentTutorialStep(); as step) {
+        <div class="tutorial-live-card">
+          <div class="tut-icon-badge">{{ step.icon }}</div>
+          <div class="tut-text-body">
+            <span class="tut-step-tag">{{ step.stepTag }}</span>
+            <h3 class="tut-step-title">{{ step.title }}</h3>
+            <p class="tut-step-desc">{{ step.desc }}</p>
+          </div>
+        </div>
+      }
+
       <!-- Bottom Voice Jump Visualizer Cockpit -->
       <aside class="voice-cockpit" [class.is-jumping]="voicePercent() >= 15">
         <div class="cockpit-top">
@@ -138,7 +150,12 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
                 <div class="cal-progress-track">
                   <div class="cal-progress-bar" [style.width.%]="voice.calibrationProgress() * 100"></div>
                 </div>
-                <span class="cal-percent">{{ voice.calibrationProgress() * 100 | number:'1.0-0' }}%</span>
+                <div class="cal-footer-row">
+                  <span class="cal-percent">{{ voice.calibrationProgress() * 100 | number:'1.0-0' }}%</span>
+                  <button class="btn-skip-cal" (click)="skipAndPlay()">
+                    {{ i18n.t.skipCalibration }}
+                  </button>
+                </div>
               </div>
             }
 
@@ -223,6 +240,62 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly shieldActive = signal(false);
   readonly shieldSeconds = signal(0);
 
+  readonly isTutorial = computed(() => this.level.id === 1);
+
+  /** Dynamic tutorial steps shown while running */
+  readonly currentTutorialStep = computed(() => {
+    if (!this.isTutorial()) return null;
+    const d = this.currentDistance();
+    const t = this.i18n.t;
+
+    if (d < 15) {
+      return {
+        icon: '🎙️',
+        stepTag: 'КРОК 1 / 6',
+        title: t.tutorialStep1Title,
+        desc: t.tutorialStep1Desc,
+      };
+    }
+    if (d < 32) {
+      return {
+        icon: '🪙',
+        stepTag: 'КРОК 2 / 6',
+        title: t.tutorialStep2Title,
+        desc: t.tutorialStep2Desc,
+      };
+    }
+    if (d < 49) {
+      return {
+        icon: '🚀',
+        stepTag: 'КРОК 3 / 6',
+        title: t.tutorialStep3Title,
+        desc: t.tutorialStep3Desc,
+      };
+    }
+    if (d < 69) {
+      return {
+        icon: '🥕',
+        stepTag: 'КРОК 4 / 6',
+        title: t.tutorialStep4Title,
+        desc: t.tutorialStep4Desc,
+      };
+    }
+    if (d < 89) {
+      return {
+        icon: '🛡️',
+        stepTag: 'КРОК 5 / 6',
+        title: t.tutorialStep5Title,
+        desc: t.tutorialStep5Desc,
+      };
+    }
+    return {
+      icon: '🏆',
+      stepTag: 'ФІНІШ!',
+      title: t.tutorialStep6Title,
+      desc: t.tutorialStep6Desc,
+    };
+  });
+
   readonly voicePercent = computed(() => Math.round(this.voice.tick() * 100));
   readonly voiceMessage = computed(() => {
     if (this.voice.state() !== 'ready') return this.i18n.t.tapOrShout;
@@ -261,6 +334,11 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   async calibrate(): Promise<void> {
     await this.voice.beginCalibration();
+  }
+
+  skipAndPlay(): void {
+    this.voice.skipCalibration();
+    this.startLevel();
   }
 
   /** Tap / click jump fallback */
@@ -373,6 +451,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     if (event === 'hit') {
       this.noticeIcon.set('💥');
       this.isCarrotNotice.set(false);
+      this.currentDistance.set(0);
       this.notice.set(this.i18n.t.obstacleHitNotice);
       window.setTimeout(() => this.notice.set(''), 1800);
       return;
@@ -381,6 +460,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
     if (event === 'fell') {
       this.noticeIcon.set('💨');
       this.isCarrotNotice.set(false);
+      this.currentDistance.set(0);
       this.notice.set(this.i18n.t.fellNotice);
       window.setTimeout(() => this.notice.set(''), 1800);
       return;

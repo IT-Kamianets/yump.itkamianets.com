@@ -319,6 +319,64 @@
   line-height: 1.3;
 }
 
+/* Tutorial Live Instruction Card Popup */
+.tutorial-live-card {
+  position: absolute;
+  top: clamp(75px, 11vh, 95px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(540px, calc(100vw - 32px));
+  background: linear-gradient(135deg, rgba(22, 31, 74, 0.94) 0%, rgba(13, 18, 48, 0.96) 100%);
+  border: 2px solid var(--neon-lime);
+  border-radius: 20px;
+  padding: 14px 20px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(163, 255, 46, 0.35);
+  backdrop-filter: blur(14px);
+  animation: popIn 0.25s ease-out;
+
+  .tut-icon-badge {
+    font-size: 2.2rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+    animation: bunnyFloat 3s ease-in-out infinite;
+  }
+
+  .tut-text-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tut-step-tag {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    color: var(--neon-lime);
+    text-transform: uppercase;
+  }
+
+  .tut-step-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: #ffffff;
+    line-height: 1.2;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+
+  .tut-step-desc {
+    font-size: 0.9rem;
+    color: #c5d5f6;
+    line-height: 1.35;
+    margin: 2px 0 0;
+  }
+}
+
 /* Tip Bubble */
 .game-tip-pill {
   position: absolute;
@@ -502,10 +560,34 @@
   }
 }
 
+.cal-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
 .cal-percent {
   font-family: var(--font-display);
   font-size: 1.1rem;
   color: var(--neon-lime);
+}
+
+.btn-skip-cal {
+  background: none;
+  border: none;
+  color: #9eb5e4;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: #ffffff;
+  }
 }
 
 /* Victory Result Modal */

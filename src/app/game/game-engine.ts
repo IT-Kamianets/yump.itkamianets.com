@@ -122,7 +122,9 @@ export class GameEngine {
   private particleGeo = new THREE.SphereGeometry(0.08, 8, 8);
 
   // Level goal distance
-  private readonly targetDistance = 140;
+  private get targetDistance(): number {
+    return this.level.id === 1 ? 92 : 140;
+  }
 
   constructor(private readonly host: HTMLElement, private readonly level: GameLevel) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -180,19 +182,26 @@ export class GameEngine {
     this.audio.playJump();
   }
 
+  /** Rebuild all platforms from scratch and safely reposition the bunny on the starter platform */
+  public restartLevel(): void {
+    this.rebuildAllPlatforms();
+    this.placeBunnyAtStart();
+    this.distance = 0;
+    this.velocityY = 0;
+    this.grounded = true;
+    this.jumpCooldown = 0.4;
+    this.invulnerableTimer = 0.6;
+    this.shieldActive = false;
+    this.shieldTimer = 0;
+    if (this.shieldMesh) this.shieldMesh.visible = false;
+    if (this.shieldGlowMesh) this.shieldGlowMesh.visible = false;
+  }
+
   /** Reposition everything at the beginning and clear state */
   reset(): void {
     this.running = false;
     this.score = 0;
-    this.distance = 0;
-    this.shieldActive = false;
-    this.shieldTimer = 0;
-    this.invulnerableTimer = 0;
-    if (this.shieldMesh) this.shieldMesh.visible = false;
-    if (this.shieldGlowMesh) this.shieldGlowMesh.visible = false;
-
-    this.rebuildAllPlatforms();
-    this.placeBunnyAtStart();
+    this.restartLevel();
   }
 
   dispose(): void {
@@ -386,18 +395,85 @@ export class GameEngine {
     }
     this.platformBlocks.length = 0;
 
-    // Start with safe spawn platform
-    this.rightmostX = -3;
-    const initialWidth = 9.5;
-    const startPlatform = this.createPlatformBlock(0, 0, initialWidth, false, false, false);
-    this.platformBlocks.push(startPlatform);
-    this.rightmostX = startPlatform.x + startPlatform.width / 2;
+    const isTutorial = this.level.id === 1;
 
-    // Generate pool of ~14 forward platforms
-    for (let i = 1; i < 14; i++) {
-      const p = this.generateNextPlatform(i);
-      this.platformBlocks.push(p);
+    if (isTutorial) {
+      // Hand-crafted tutorial platforms flow
+      this.rightmostX = -3;
+      // Step 1: starter platform (warm up, jump)
+      const p1 = this.createPlatformBlock(3, 0, 13, false, false, false);
+      this.platformBlocks.push(p1);
+      this.rightmostX = p1.x + p1.width / 2;
+
+      // Step 2: Coins platform
+      const p2 = this.createPlatformBlock(this.rightmostX + 2.0 + 6, 0.25, 12, false, true, false);
+      this.platformBlocks.push(p2);
+      this.rightmostX = p2.x + p2.width / 2;
+
+      // Step 3: Wider gap + Carrot Shield platform
+      const p3 = this.createPlatformBlock(this.rightmostX + 3.1 + 6, 0.55, 12, false, false, true);
+      this.platformBlocks.push(p3);
+      this.rightmostX = p3.x + p3.width / 2;
+
+      // Step 4: Spikes hazard platform (test shield or leap over)
+      const p4 = this.createPlatformBlock(this.rightmostX + 2.4 + 7, 0.2, 14, true, false, false);
+      this.platformBlocks.push(p4);
+      this.rightmostX = p4.x + p4.width / 2;
+
+      // Step 5: Victory Goal Trophy platform
+      const p5 = this.createPlatformBlock(this.rightmostX + 2.8 + 9, 0.75, 18, false, true, false);
+      const trophy = this.buildGoalTrophy(p5.x + 3.5, p5.y + 1.1);
+      p5.group.add(trophy);
+      this.platformBlocks.push(p5);
+      this.rightmostX = p5.x + p5.width / 2;
+
+      // Add a couple of forward backup platforms
+      for (let i = 5; i < 9; i++) {
+        const p = this.generateNextPlatform(i);
+        this.platformBlocks.push(p);
+      }
+    } else {
+      // Start with safe spawn platform
+      this.rightmostX = -3;
+      const initialWidth = 9.5;
+      const startPlatform = this.createPlatformBlock(0, 0, initialWidth, false, false, false);
+      this.platformBlocks.push(startPlatform);
+      this.rightmostX = startPlatform.x + startPlatform.width / 2;
+
+      // Generate pool of ~14 forward platforms
+      for (let i = 1; i < 14; i++) {
+        const p = this.generateNextPlatform(i);
+        this.platformBlocks.push(p);
+      }
     }
+  }
+
+  /** Trophy carrot placed at the end of the tutorial stage */
+  private buildGoalTrophy(x: number, y: number): THREE.Group {
+    const trophy = new THREE.Group();
+    const carrotGeo = new THREE.ConeGeometry(0.48, 1.4, 16);
+    const carrotMat = new THREE.MeshStandardMaterial({
+      color: '#ff8800',
+      emissive: '#ffd214',
+      emissiveIntensity: 0.6,
+      roughness: 0.2,
+      metalness: 0.35,
+    });
+    const carrot = new THREE.Mesh(carrotGeo, carrotMat);
+    carrot.rotation.x = Math.PI;
+    carrot.position.y = 0.7;
+    trophy.add(carrot);
+
+    const leafGeo = new THREE.ConeGeometry(0.14, 0.55, 8);
+    const leafMat = new THREE.MeshStandardMaterial({ color: '#33ff33', roughness: 0.2 });
+    for (let i = 0; i < 3; i++) {
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      leaf.position.set((i - 1) * 0.15, 1.5, 0);
+      leaf.rotation.z = (i - 1) * 0.32;
+      trophy.add(leaf);
+    }
+    trophy.position.set(x, y, 0);
+    return trophy;
   }
 
   private generateNextPlatform(stepIndex: number): PlatformBlock {
@@ -776,7 +852,7 @@ export class GameEngine {
             // Unshielded crash
             this.audio.playHit();
             this.onEvent?.('hit');
-            this.placeBunnyAtStart();
+            this.restartLevel();
             return;
           }
         }
@@ -839,12 +915,15 @@ export class GameEngine {
     if (this.bunny.position.y < -5.5) {
       this.audio.playFall();
       this.onEvent?.('fell');
-      this.placeBunnyAtStart();
+      this.restartLevel();
     }
   }
 
   /** Recycle leftmost platform that went behind camera */
   private recyclePlatforms(): void {
+    // In tutorial mode, do not cull early stages to keep the world visible and stable
+    if (this.level.id === 1) return;
+
     const cullX = this.camera.position.x - 18;
     for (let i = 0; i < this.platformBlocks.length; i++) {
       const block = this.platformBlocks[i];
