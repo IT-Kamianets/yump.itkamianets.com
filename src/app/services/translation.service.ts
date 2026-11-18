@@ -83,6 +83,7 @@ export interface Translations {
   niceYump: string;
   conqueredMsg: string;
   playAgain: string;
+  nextStage: string;
   stagesMap: string;
   backToStages: string;
   obstacleHitNotice: string;
@@ -184,6 +185,7 @@ const EN: Translations = {
   niceYump: 'NICE YUMP!',
   conqueredMsg: 'You conquered {level} using your voice like a champ!',
   playAgain: 'PLAY AGAIN 🔄',
+  nextStage: 'NEXT STAGE ➔',
   stagesMap: 'STAGES MAP ➔',
   backToStages: 'Back to Stages',
   obstacleHitNotice: 'Obstacle hit! Try that jump again!',
@@ -285,6 +287,7 @@ const UK: Translations = {
   niceYump: 'КРУТИЙ ЮМП!',
   conqueredMsg: 'Ти підкорив рівень {level} силою свого голосу як справжній чемпіон!',
   playAgain: 'ЩЕ РАЗ 🔄',
+  nextStage: 'НАСТУПНИЙ РІВЕНЬ ➔',
   stagesMap: 'ДО РІВНІВ ➔',
   backToStages: 'Назад до рівнів',
   obstacleHitNotice: 'Удар об перешкоду! Спробуй стрибок ще раз!',

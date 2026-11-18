@@ -104,6 +104,7 @@ export class GameEngine {
 
   // Materials & Geometries cache
   private backdropMesh?: THREE.Mesh;
+  private goalTrophy?: THREE.Group;
   private coinGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 16);
   private coinMaterial = new THREE.MeshStandardMaterial({
     color: '#ffd214',
@@ -123,8 +124,10 @@ export class GameEngine {
   private particleGeo = new THREE.SphereGeometry(0.08, 8, 8);
 
   // Level goal distance
-  private get targetDistance(): number {
-    return this.level.id === 1 ? 92 : 140;
+  public get targetDistance(): number {
+    if (this.level.id === 1) return 92;
+    if (this.level.id === 2) return 120;
+    return 140;
   }
 
   constructor(private readonly host: HTMLElement, private readonly level: GameLevel) {
@@ -406,84 +409,265 @@ export class GameEngine {
       this.scene.remove(p.group);
     }
     this.platformBlocks.length = 0;
+    this.goalTrophy = undefined;
 
-    const isTutorial = this.level.id === 1;
-
-    if (isTutorial) {
-      // Hand-crafted tutorial platforms flow
-      this.rightmostX = -3;
-      // Step 1: starter platform (warm up, jump)
-      const p1 = this.createPlatformBlock(3, 0, 13, false, false, false);
-      this.platformBlocks.push(p1);
-      this.rightmostX = p1.x + p1.width / 2;
-
-      // Step 2: Coins platform
-      const p2 = this.createPlatformBlock(this.rightmostX + 2.0 + 6, 0.25, 12, false, true, false);
-      this.platformBlocks.push(p2);
-      this.rightmostX = p2.x + p2.width / 2;
-
-      // Step 3: Wider gap + Carrot Shield platform
-      const p3 = this.createPlatformBlock(this.rightmostX + 3.1 + 6, 0.55, 12, false, false, true);
-      this.platformBlocks.push(p3);
-      this.rightmostX = p3.x + p3.width / 2;
-
-      // Step 4: Spikes hazard platform (test shield or leap over)
-      const p4 = this.createPlatformBlock(this.rightmostX + 2.4 + 7, 0.2, 14, true, false, false);
-      this.platformBlocks.push(p4);
-      this.rightmostX = p4.x + p4.width / 2;
-
-      // Step 5: Victory Goal Trophy platform
-      const p5 = this.createPlatformBlock(this.rightmostX + 2.8 + 9, 0.75, 18, false, true, false);
-      const trophy = this.buildGoalTrophy(p5.x + 3.5, p5.y + 1.1);
-      p5.group.add(trophy);
-      this.platformBlocks.push(p5);
-      this.rightmostX = p5.x + p5.width / 2;
-
-      // Add a couple of forward backup platforms
-      for (let i = 5; i < 9; i++) {
-        const p = this.generateNextPlatform(i);
-        this.platformBlocks.push(p);
-      }
+    if (this.level.id === 1) {
+      this.buildLevel1Platforms();
+    } else if (this.level.id === 2) {
+      this.buildLevel2Platforms();
     } else {
-      // Start with safe spawn platform
-      this.rightmostX = -3;
-      const initialWidth = 9.5;
-      const startPlatform = this.createPlatformBlock(0, 0, initialWidth, false, false, false);
-      this.platformBlocks.push(startPlatform);
-      this.rightmostX = startPlatform.x + startPlatform.width / 2;
-
-      // Generate pool of ~14 forward platforms
-      for (let i = 1; i < 14; i++) {
-        const p = this.generateNextPlatform(i);
-        this.platformBlocks.push(p);
-      }
+      this.buildGenericPlatforms();
     }
   }
 
-  /** Trophy carrot placed at the end of the tutorial stage */
-  private buildGoalTrophy(x: number, y: number): THREE.Group {
-    const trophy = new THREE.Group();
-    const carrotGeo = new THREE.ConeGeometry(0.48, 1.4, 16);
-    const carrotMat = new THREE.MeshStandardMaterial({
-      color: '#ff8800',
-      emissive: '#ffd214',
-      emissiveIntensity: 0.6,
-      roughness: 0.2,
-      metalness: 0.35,
-    });
-    const carrot = new THREE.Mesh(carrotGeo, carrotMat);
-    carrot.rotation.x = Math.PI;
-    carrot.position.y = 0.7;
-    trophy.add(carrot);
+  /** Hand-crafted tutorial platform sequence */
+  private buildLevel1Platforms(): void {
+    this.rightmostX = -3;
+    // Step 1: starter platform (warm up, jump)
+    const p1 = this.createPlatformBlock(3, 0, 13, false, false, false);
+    this.platformBlocks.push(p1);
+    this.rightmostX = p1.x + p1.width / 2;
 
-    const leafGeo = new THREE.ConeGeometry(0.14, 0.55, 8);
-    const leafMat = new THREE.MeshStandardMaterial({ color: '#33ff33', roughness: 0.2 });
-    for (let i = 0; i < 3; i++) {
-      const leaf = new THREE.Mesh(leafGeo, leafMat);
-      leaf.position.set((i - 1) * 0.15, 1.5, 0);
-      leaf.rotation.z = (i - 1) * 0.32;
-      trophy.add(leaf);
+    // Step 2: Coins platform
+    const p2 = this.createPlatformBlock(this.rightmostX + 2.0 + 6, 0.25, 12, false, true, false);
+    this.platformBlocks.push(p2);
+    this.rightmostX = p2.x + p2.width / 2;
+
+    // Step 3: Wider gap + Carrot Shield platform
+    const p3 = this.createPlatformBlock(this.rightmostX + 3.1 + 6, 0.55, 12, false, false, true);
+    this.platformBlocks.push(p3);
+    this.rightmostX = p3.x + p3.width / 2;
+
+    // Step 4: Spikes hazard platform (test shield or leap over)
+    const p4 = this.createPlatformBlock(this.rightmostX + 2.4 + 7, 0.2, 14, true, false, false);
+    this.platformBlocks.push(p4);
+    this.rightmostX = p4.x + p4.width / 2;
+
+    // Step 5: Victory Goal Trophy platform
+    const p5 = this.createPlatformBlock(this.rightmostX + 2.8 + 9, 0.75, 18, false, true, false);
+    const trophy = this.buildGoalTrophy(p5.x + 3.5, p5.y + 1.1, false);
+    p5.group.add(trophy);
+    this.platformBlocks.push(p5);
+    this.rightmostX = p5.x + p5.width / 2;
+
+    // Forward backup platforms
+    for (let i = 5; i < 9; i++) {
+      const p = this.generateNextPlatform(i);
+      this.platformBlocks.push(p);
     }
+  }
+
+  /**
+   * Stage 02: "First Steps"
+   * Rhythm & voice mastery: elevated steps, wider chasms, parabolic coin arcs,
+   * stationary & moving hazards, carrot shield power-ups, and the Grand Cyan Crystal Trophy!
+   */
+  private buildLevel2Platforms(): void {
+    this.rightmostX = -3;
+
+    // 1. Starter Launchpad Runway (0m - 14m)
+    const p1 = this.createPlatformBlock(3, 0, 13, false, true, false);
+    this.platformBlocks.push(p1);
+    this.rightmostX = p1.x + p1.width / 2; // 9.5
+
+    // 2. First Chasm & Parabolic Coin Arc (Gap 3.0m, y=0.3, width=11)
+    const p2Gap = 3.0;
+    const p2Width = 11;
+    const p2X = this.rightmostX + p2Gap + p2Width / 2;
+    const p2 = this.createPlatformBlock(p2X, 0.3, p2Width, false, true, false);
+    this.platformBlocks.push(p2);
+    this.spawnCoinArc(this.rightmostX + 0.3, p2X - p2Width / 2 - 0.3, 0.8, 1.2, 3);
+    this.rightmostX = p2.x + p2.width / 2;
+
+    // 3. Elevated Ledge + Carrot Shield (Gap 3.2m, y=1.2, width=10)
+    const p3Gap = 3.2;
+    const p3Width = 10;
+    const p3X = this.rightmostX + p3Gap + p3Width / 2;
+    const p3 = this.createPlatformBlock(p3X, 1.2, p3Width, false, false, true);
+    this.platformBlocks.push(p3);
+    this.rightmostX = p3.x + p3.width / 2;
+
+    // 4. Spike Barrier Platform (Gap 2.8m, y=0.5, width=14)
+    const p4Gap = 2.8;
+    const p4Width = 14;
+    const p4X = this.rightmostX + p4Gap + p4Width / 2;
+    const p4 = this.createPlatformBlock(p4X, 0.5, p4Width, true, false, false);
+    this.platformBlocks.push(p4);
+    this.rightmostX = p4.x + p4.width / 2;
+
+    // 5. The Great 4.2m Chasm + High Parabolic Coin Arc (Gap 4.2m, y=0.1, width=12)
+    const p5Gap = 4.2;
+    const p5Width = 12;
+    const p5X = this.rightmostX + p5Gap + p5Width / 2;
+    const p5 = this.createPlatformBlock(p5X, 0.1, p5Width, false, true, false);
+    this.platformBlocks.push(p5);
+    this.spawnCoinArc(this.rightmostX + 0.4, p5X - p5Width / 2 - 0.4, 0.85, 2.2, 4);
+    this.rightmostX = p5.x + p5.width / 2;
+
+    // 6. Summit Ledge + Backup Carrot Shield (Gap 3.4m, y=1.5, width=9)
+    const p6Gap = 3.4;
+    const p6Width = 9;
+    const p6X = this.rightmostX + p6Gap + p6Width / 2;
+    const p6 = this.createPlatformBlock(p6X, 1.5, p6Width, false, false, true);
+    this.platformBlocks.push(p6);
+    this.rightmostX = p6.x + p6.width / 2;
+
+    // 7. Moving Hazard Gauntlet (Gap 3.0m, y=0.6, width=13, moving hazard)
+    const p7Gap = 3.0;
+    const p7Width = 13;
+    const p7X = this.rightmostX + p7Gap + p7Width / 2;
+    const p7 = this.createPlatformBlock(p7X, 0.6, p7Width, true, false, false, true);
+    this.platformBlocks.push(p7);
+    this.rightmostX = p7.x + p7.width / 2;
+
+    // 8. Stepping Stone Island (Gap 3.2m, y=1.0, width=7)
+    const p8Gap = 3.2;
+    const p8Width = 7;
+    const p8X = this.rightmostX + p8Gap + p8Width / 2;
+    const p8 = this.createPlatformBlock(p8X, 1.0, p8Width, false, true, false);
+    this.platformBlocks.push(p8);
+    this.rightmostX = p8.x + p8.width / 2;
+
+    // 9. Grand Skyline Finish Platform (Gap 3.4m, y=0.8, width=22)
+    const p9Gap = 3.4;
+    const p9Width = 22;
+    const p9X = this.rightmostX + p9Gap + p9Width / 2;
+    const p9 = this.createPlatformBlock(p9X, 0.8, p9Width, false, true, false);
+    const trophy = this.buildGoalTrophy(p9X + 4.0, p9.y + 1.2, true);
+    p9.group.add(trophy);
+    this.platformBlocks.push(p9);
+    this.rightmostX = p9.x + p9.width / 2;
+
+    // Forward backup platforms
+    for (let i = 1; i <= 3; i++) {
+      const p = this.generateNextPlatform(i + 10);
+      this.platformBlocks.push(p);
+    }
+  }
+
+  /** Generic procedural platforms for endless / higher stages */
+  private buildGenericPlatforms(): void {
+    this.rightmostX = -3;
+    const initialWidth = 9.5;
+    const startPlatform = this.createPlatformBlock(0, 0, initialWidth, false, false, false);
+    this.platformBlocks.push(startPlatform);
+    this.rightmostX = startPlatform.x + startPlatform.width / 2;
+
+    for (let i = 1; i < 14; i++) {
+      const p = this.generateNextPlatform(i);
+      this.platformBlocks.push(p);
+    }
+  }
+
+  /** Spawn a parabolic arc of floating golden coins between two X points */
+  private spawnCoinArc(xStart: number, xEnd: number, yBase: number, arcHeight: number, count = 4): void {
+    const parentBlock = this.platformBlocks[this.platformBlocks.length - 1];
+    if (!parentBlock) return;
+
+    for (let i = 0; i < count; i++) {
+      const t = (i + 1) / (count + 1);
+      const coinX = THREE.MathUtils.lerp(xStart, xEnd, t);
+      const coinY = yBase + Math.sin(t * Math.PI) * arcHeight;
+
+      const coinMesh = new THREE.Mesh(this.coinGeometry, this.coinMaterial);
+      coinMesh.castShadow = true;
+      coinMesh.rotation.x = Math.PI * 0.5;
+      coinMesh.position.set(coinX - parentBlock.x, coinY - parentBlock.y, 0);
+      parentBlock.group.add(coinMesh);
+
+      parentBlock.coins.push({
+        mesh: coinMesh,
+        x: coinX,
+        y: coinY,
+        baseY: coinY,
+        phase: Math.random() * Math.PI * 2,
+        active: true,
+      });
+    }
+  }
+
+  /** Trophy placed at the end of the stage */
+  private buildGoalTrophy(x: number, y: number, isStar = false): THREE.Group {
+    const trophy = new THREE.Group();
+    if (!isStar) {
+      // Golden Carrot Trophy for Level 1
+      const carrotGeo = new THREE.ConeGeometry(0.48, 1.4, 16);
+      const carrotMat = new THREE.MeshStandardMaterial({
+        color: '#ff8800',
+        emissive: '#ffd214',
+        emissiveIntensity: 0.6,
+        roughness: 0.2,
+        metalness: 0.35,
+      });
+      const carrot = new THREE.Mesh(carrotGeo, carrotMat);
+      carrot.rotation.x = Math.PI;
+      carrot.position.y = 0.7;
+      trophy.add(carrot);
+
+      const leafGeo = new THREE.ConeGeometry(0.14, 0.55, 8);
+      const leafMat = new THREE.MeshStandardMaterial({ color: '#33ff33', roughness: 0.2 });
+      for (let i = 0; i < 3; i++) {
+        const leaf = new THREE.Mesh(leafGeo, leafMat);
+        leaf.position.set((i - 1) * 0.15, 1.5, 0);
+        leaf.rotation.z = (i - 1) * 0.32;
+        trophy.add(leaf);
+      }
+    } else {
+      // Grand Cyan Crystal Star Trophy for Level 2
+      const pedGeo = new THREE.CylinderGeometry(0.55, 0.75, 0.35, 16);
+      const pedMat = new THREE.MeshStandardMaterial({
+        color: '#0d1d3a',
+        roughness: 0.3,
+        metalness: 0.8,
+      });
+      const ped = new THREE.Mesh(pedGeo, pedMat);
+      ped.position.y = 0.17;
+      trophy.add(ped);
+
+      const ringGeo = new THREE.TorusGeometry(0.62, 0.07, 8, 24);
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: '#ffd214',
+        emissive: '#ff9900',
+        emissiveIntensity: 0.5,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI * 0.5;
+      ring.position.y = 0.32;
+      trophy.add(ring);
+
+      const crystalGeo = new THREE.OctahedronGeometry(0.65, 0);
+      const crystalMat = new THREE.MeshStandardMaterial({
+        color: '#73e0ff',
+        emissive: '#00d5ff',
+        emissiveIntensity: 0.85,
+        roughness: 0.1,
+        metalness: 0.9,
+      });
+      const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+      crystal.position.y = 1.15;
+      crystal.scale.set(0.9, 1.4, 0.9);
+      trophy.add(crystal);
+
+      const shardGeo = new THREE.TetrahedronGeometry(0.12, 0);
+      const shardMat = new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        emissive: '#73e0ff',
+        emissiveIntensity: 0.9,
+      });
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        const shard = new THREE.Mesh(shardGeo, shardMat);
+        shard.position.set(Math.cos(angle) * 0.85, 1.15 + Math.sin(angle) * 0.2, Math.sin(angle) * 0.85);
+        trophy.add(shard);
+      }
+    }
+
+    trophy.position.set(x, y, 0);
+    this.goalTrophy = trophy;
+    return trophy;
+  }
     trophy.position.set(x, y, 0);
     return trophy;
   }
@@ -522,6 +706,7 @@ export class GameEngine {
     hasHazard: boolean,
     hasCoins: boolean,
     hasCarrot: boolean,
+    isMovingHazard = false,
   ): PlatformBlock {
     const group = new THREE.Group();
     group.position.set(x, y, 0);
@@ -556,7 +741,7 @@ export class GameEngine {
 
     // Spawn Hazards (Spikes / Moving blocks)
     if (hasHazard && width > 4.0) {
-      const isMoving = this.level.id >= 3 && Math.random() < 0.4;
+      const isMoving = isMovingHazard || (this.level.id >= 3 && Math.random() < 0.4);
       const hazWidth = 0.6;
       const hazHeight = 0.95;
       const hazGeo = new THREE.BoxGeometry(hazWidth, hazHeight, 2.2);
@@ -879,10 +1064,12 @@ export class GameEngine {
       for (const coin of block.coins) {
         if (coin.active) {
           coin.mesh.rotation.z += delta * 3.5;
-          coin.mesh.position.y = 1.25 + Math.sin(time * 4.5 + coin.phase) * 0.14;
+          const bob = Math.sin(time * 4.5 + coin.phase) * 0.12;
+          coin.mesh.position.y = (coin.baseY - block.y) + bob;
+          coin.y = coin.baseY + bob;
 
           const dist = Math.hypot(this.bunny.position.x - coin.x, (this.bunny.position.y + 0.7) - coin.y);
-          if (dist < 0.9) {
+          if (dist < 0.95) {
             coin.active = false;
             coin.mesh.visible = false;
             this.score++;
@@ -914,6 +1101,11 @@ export class GameEngine {
       }
     }
 
+    // Goal Trophy animation
+    if (this.goalTrophy) {
+      this.goalTrophy.rotation.y += delta * 1.6;
+    }
+
     // Recycle platforms going off-screen to the right
     this.recyclePlatforms();
 
@@ -938,8 +1130,8 @@ export class GameEngine {
 
   /** Recycle leftmost platform that went behind camera */
   private recyclePlatforms(): void {
-    // In tutorial mode, do not cull early stages to keep the world visible and stable
-    if (this.level.id === 1) return;
+    // In crafted stages (levels 1 & 2), do not cull early stages to keep the world visible and stable
+    if (this.level.id <= 2) return;
 
     const cullX = this.camera.position.x - 18;
     for (let i = 0; i < this.platformBlocks.length; i++) {

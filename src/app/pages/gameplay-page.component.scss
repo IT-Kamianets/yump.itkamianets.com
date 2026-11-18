@@ -674,6 +674,19 @@
     font-size: 1.1rem;
     padding: 14px 20px;
   }
+
+  .btn-arcade-next {
+    background: linear-gradient(180deg, #73e0ff 0%, #0099ff 100%) !important;
+    border-color: #a6eeff !important;
+    color: #031024 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 18px rgba(0, 153, 255, 0.45) !important;
+
+    &:hover {
+      background: linear-gradient(180deg, #99e8ff 0%, #1ab0ff 100%) !important;
+      transform: translateY(-2px);
+    }
+  }
 }
 
 /* Gameplay In-Game Toast Notice */

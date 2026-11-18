@@ -1,6 +1,7 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { GameEngine, GameEvent } from '../game/game-engine';
 import { getLevel } from '../game/levels';
 import { GameLevel } from '../models/game-level';
@@ -50,7 +51,7 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
           <!-- Distance meters -->
           <div class="hud-stat-pill distance-pill" title="Run distance">
             <span class="pill-icon">🏃</span>
-            <span class="pill-val">{{ currentDistance() }} {{ i18n.t.distanceMeters }}</span>
+            <span class="pill-val">{{ currentDistance() }} / {{ targetDistance() }} {{ i18n.t.distanceMeters }}</span>
           </div>
         </div>
 
@@ -204,6 +205,11 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
             </div>
 
             <div class="result-actions">
+              @if (hasNextLevel()) {
+                <button class="btn-arcade btn-arcade-next" (click)="goToNextLevel()">
+                  <span>{{ i18n.t.nextStage }}</span>
+                </button>
+              }
               <button class="btn-arcade" (click)="restart()">
                 <span>{{ i18n.t.playAgain }}</span>
               </button>
@@ -226,11 +232,11 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
   `,
   styleUrl: './gameplay-page.component.scss',
 })
-export class GameplayPageComponent implements AfterViewInit, OnDestroy {
+export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('stage') stage?: ElementRef<HTMLElement>;
 
   readonly i18n = inject(TranslationService);
-  readonly level: GameLevel;
+  level: GameLevel;
   readonly modal = signal<'calibration' | 'results' | null>('calibration');
   readonly notice = signal('');
   readonly noticeIcon = signal('💥');
@@ -244,6 +250,9 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   readonly voicePercent = signal(0);
 
   readonly isTutorial = computed(() => this.level.id === 1);
+  readonly targetDistance = computed(() => (this.level.id === 1 ? 92 : this.level.id === 2 ? 120 : 140));
+  readonly hasNextLevel = computed(() => this.level.id < 5);
+  readonly nextLevelId = computed(() => this.level.id + 1);
 
   /** Dynamic tutorial steps shown while running */
   readonly currentTutorialStep = computed(() => {
@@ -310,9 +319,28 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   private engine?: GameEngine;
   private gameSyncLoop?: number;
   private calCheckTimer?: number;
+  private routeSub?: Subscription;
 
-  constructor(private readonly route: ActivatedRoute, readonly voice: VoiceInputService) {
+  constructor(
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
+    readonly voice: VoiceInputService,
+  ) {
     this.level = getLevel(Number(this.route.snapshot.paramMap.get('id')));
+    // If mic is already calibrated and ready (e.g. continuing to level 2), dismiss modal immediately
+    if (this.voice.state() === 'ready') {
+      this.modal.set(null);
+    }
+  }
+
+  ngOnInit(): void {
+    this.routeSub = this.route.paramMap.subscribe((params) => {
+      const newId = Number(params.get('id'));
+      if (newId && newId !== this.level.id) {
+        this.level = getLevel(newId);
+        this.initStageForLevel();
+      }
+    });
   }
 
   getLevelName(id: number): string {
@@ -333,6 +361,33 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.engine = new GameEngine(this.stage!.nativeElement, this.level);
+    if (this.voice.state() === 'ready' && this.modal() === null) {
+      this.startLevel();
+    }
+  }
+
+  goToNextLevel(): void {
+    const nextId = this.nextLevelId();
+    this.modal.set(null);
+    this.router.navigate(['/game', nextId]);
+  }
+
+  private initStageForLevel(): void {
+    this.stopGameLoop();
+    this.engine?.dispose();
+    if (this.stage?.nativeElement) {
+      this.engine = new GameEngine(this.stage.nativeElement, this.level);
+    }
+    this.currentScore.set(0);
+    this.currentDistance.set(0);
+    this.shieldActive.set(false);
+    this.shieldSeconds.set(0);
+    if (this.voice.state() === 'ready') {
+      this.modal.set(null);
+      this.startLevel();
+    } else {
+      this.modal.set('calibration');
+    }
   }
 
   async calibrate(): Promise<void> {
@@ -419,6 +474,7 @@ export class GameplayPageComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.routeSub?.unsubscribe();
     if (this.calCheckTimer) {
       window.clearInterval(this.calCheckTimer);
       this.calCheckTimer = undefined;

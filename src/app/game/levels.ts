@@ -20,10 +20,20 @@ export const LEVELS: GameLevel[] = [
     difficulty: 'Easy',
     accent: '#73e0ff',
     platforms: [
-      { x: 0, y: 0, width: 6 }, { x: 8, y: .5, width: 5 }, { x: 15, y: 1.1, width: 5 },
-      { x: 23, y: .2, width: 6 }, { x: 32, y: 1, width: 7 },
+      { x: 3, y: 0, width: 13 },
+      { x: 18, y: 0.3, width: 11 },
+      { x: 31.7, y: 1.2, width: 10 },
+      { x: 46.5, y: 0.5, width: 14 },
+      { x: 63.7, y: 0.1, width: 12 },
+      { x: 77.6, y: 1.5, width: 9 },
+      { x: 91.6, y: 0.6, width: 13 },
+      { x: 104.8, y: 1.0, width: 7 },
+      { x: 122.7, y: 0.8, width: 22 },
     ],
-    obstacles: [],
+    obstacles: [
+      { x: 46.5, height: 0.95, width: 0.6 },
+      { x: 91.6, height: 0.95, width: 0.6 },
+    ],
   },
   {
     id: 3,
