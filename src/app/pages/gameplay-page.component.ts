@@ -76,6 +76,45 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
         </div>
       }
 
+      <!-- Stage Goal Progress Bar (shown on all stages except Tutorial) -->
+      @if (!isTutorial()) {
+        <div class="stage-progress-card" role="progressbar" [attr.aria-valuenow]="levelProgressPercent()" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-meta">
+            <span class="progress-node start-node">
+              <span class="node-icon">🚩</span>
+              <span class="node-label">0m</span>
+            </span>
+
+            <div class="progress-center-badge" [style.--accent]="level.accent">
+              <span class="progress-stage-name">{{ getLevelName(level.id) }}</span>
+              <span class="progress-pct">{{ levelProgressPercent() }}%</span>
+            </div>
+
+            <span class="progress-node goal-node" [class.near-goal]="levelProgressPercent() >= 80">
+              <span class="node-icon">🏆</span>
+              <span class="node-label">{{ targetDistance() }}{{ i18n.t.distanceMeters }}</span>
+            </span>
+          </div>
+
+          <div class="progress-track">
+            <div
+              class="progress-fill"
+              [style.width.%]="levelProgressPercent()"
+              [style.background]="level.accent"
+              [style.box-shadow]="'0 0 16px ' + level.accent"
+            ></div>
+            <div
+              class="progress-runner-pin"
+              [style.left.%]="levelProgressPercent()"
+              [style.border-color]="level.accent"
+              title="You are here!"
+            >
+              <span class="runner-emoji">🐰</span>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Bottom Voice Jump Visualizer Cockpit -->
       <aside class="voice-cockpit" [class.is-jumping]="voicePercent() >= 15">
         <div class="cockpit-top">
@@ -253,6 +292,12 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly targetDistance = computed(() => (this.level.id === 1 ? 92 : this.level.id === 2 ? 120 : 140));
   readonly hasNextLevel = computed(() => this.level.id < 5);
   readonly nextLevelId = computed(() => this.level.id + 1);
+
+  readonly levelProgressPercent = computed(() => {
+    const target = this.targetDistance();
+    if (!target) return 0;
+    return Math.min(100, Math.max(0, Math.round((this.currentDistance() / target) * 100)));
+  });
 
   /** Dynamic tutorial steps shown while running */
   readonly currentTutorialStep = computed(() => {

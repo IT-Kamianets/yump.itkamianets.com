@@ -380,6 +380,138 @@
   }
 }
 
+/* Stage Goal Progress Bar (Levels 2+) */
+.stage-progress-card {
+  position: absolute;
+  top: clamp(70px, 9.5vh, 88px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  width: min(460px, calc(100vw - 32px));
+  background: linear-gradient(135deg, rgba(16, 23, 56, 0.92) 0%, rgba(10, 14, 38, 0.96) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 10px 16px 12px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(14px);
+  animation: popIn 0.25s ease-out;
+
+  .progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+  }
+
+  .progress-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #a4b3d6;
+    letter-spacing: 0.04em;
+
+    .node-icon {
+      font-size: 1.05rem;
+    }
+
+    &.goal-node.near-goal {
+      color: #ffd214;
+      animation: victoryPulse 1.2s ease-in-out infinite;
+
+      .node-icon {
+        transform: scale(1.15);
+        filter: drop-shadow(0 0 8px rgba(255, 210, 20, 0.8));
+      }
+    }
+  }
+
+  .progress-center-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 3px 12px;
+
+    .progress-stage-name {
+      color: #e2eafc;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+    }
+
+    .progress-pct {
+      color: var(--accent, var(--neon-lime));
+      font-weight: 800;
+      font-size: 0.84rem;
+      letter-spacing: 0.02em;
+    }
+  }
+
+  .progress-track {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: visible;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.12s linear;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 12px;
+      border-radius: 999px;
+      background: #ffffff;
+      opacity: 0.65;
+      filter: blur(1px);
+    }
+  }
+
+  .progress-runner-pin {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 26px;
+    height: 26px;
+    background: #121738;
+    border: 2px solid var(--stage-accent, var(--neon-lime));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6), 0 0 12px rgba(115, 224, 255, 0.5);
+    transition: left 0.12s linear;
+    pointer-events: none;
+
+    .runner-emoji {
+      font-size: 0.88rem;
+      line-height: 1;
+      transform: translateY(-0.5px);
+    }
+  }
+}
+
+@keyframes victoryPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
 /* Tip Bubble */
 .game-tip-pill {
   position: absolute;
