@@ -1,10 +1,15 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.yump.game',
+  appId: 'com.itkamianets.yump',
   appName: 'YUMP!',
   webDir: 'dist/yump/browser',
-  // Keep the splash screen visible while the app loads.
+  server: {
+    androidScheme: 'https',
+  },
+  android: {
+    allowMixedContent: true,
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,
