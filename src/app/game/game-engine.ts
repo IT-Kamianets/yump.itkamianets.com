@@ -668,9 +668,6 @@ export class GameEngine {
     this.goalTrophy = trophy;
     return trophy;
   }
-    trophy.position.set(x, y, 0);
-    return trophy;
-  }
 
   private generateNextPlatform(stepIndex: number): PlatformBlock {
     // Level difficulty scaling
