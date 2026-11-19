@@ -105,6 +105,8 @@ export class GameEngine {
   // Materials & Geometries cache
   private backdropMesh?: THREE.Mesh;
   private goalTrophy?: THREE.Group;
+  private checkeredTex?: THREE.CanvasTexture;
+  private bannerTex?: THREE.CanvasTexture;
   private coinGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 16);
   private coinMaterial = new THREE.MeshStandardMaterial({
     color: '#ffd214',
@@ -125,7 +127,7 @@ export class GameEngine {
 
   // Level goal distance
   public get targetDistance(): number {
-    if (this.level.id === 1) return 92;
+    if (this.level.id === 1) return 90;
     if (this.level.id === 2) return 120;
     return 140;
   }
@@ -220,6 +222,8 @@ export class GameEngine {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.handleKeyDown);
     this.audio.dispose();
+    this.checkeredTex?.dispose();
+    this.bannerTex?.dispose();
     this.renderer.dispose();
     this.host.replaceChildren();
   }
@@ -429,30 +433,49 @@ export class GameEngine {
     this.rightmostX = p1.x + p1.width / 2;
 
     // Step 2: Coins platform
-    const p2 = this.createPlatformBlock(this.rightmostX + 2.0 + 6, 0.25, 12, false, true, false);
+    const p2 = this.createPlatformBlock(this.rightmostX + 2.2 + 6, 0.25, 12, false, true, false);
     this.platformBlocks.push(p2);
     this.rightmostX = p2.x + p2.width / 2;
 
     // Step 3: Wider gap + Carrot Shield platform
-    const p3 = this.createPlatformBlock(this.rightmostX + 3.1 + 6, 0.55, 12, false, false, true);
+    const p3 = this.createPlatformBlock(this.rightmostX + 3.0 + 6, 0.55, 12, false, false, true);
     this.platformBlocks.push(p3);
     this.rightmostX = p3.x + p3.width / 2;
 
     // Step 4: Spikes hazard platform (test shield or leap over)
-    const p4 = this.createPlatformBlock(this.rightmostX + 2.4 + 7, 0.2, 14, true, false, false);
+    const p4 = this.createPlatformBlock(this.rightmostX + 2.6 + 7, 0.2, 14, true, false, false);
     this.platformBlocks.push(p4);
     this.rightmostX = p4.x + p4.width / 2;
 
-    // Step 5: Victory Goal Trophy platform
-    const p5 = this.createPlatformBlock(this.rightmostX + 2.8 + 9, 0.75, 18, false, true, false);
-    const trophy = this.buildGoalTrophy(p5.x + 3.5, p5.y + 1.1, false);
-    p5.group.add(trophy);
+    // Step 5: High leap over chasm + Coin Arc
+    const p5Gap = 3.2;
+    const p5Width = 13;
+    const p5X = this.rightmostX + p5Gap + p5Width / 2;
+    const p5 = this.createPlatformBlock(p5X, 0.45, p5Width, false, true, false);
     this.platformBlocks.push(p5);
+    this.spawnCoinArc(this.rightmostX + 0.3, p5X - p5Width / 2 - 0.3, 0.8, 1.4, 4);
     this.rightmostX = p5.x + p5.width / 2;
 
+    // Step 6: Grand Victory Runway with Finish Arch & Golden Carrot Trophy
+    const p6Gap = 3.4;
+    const p6Width = 26;
+    const p6X = this.rightmostX + p6Gap + p6Width / 2;
+    const p6 = this.createPlatformBlock(p6X, 0.75, p6Width, false, true, false);
+    
+    // Add Finish Line Arch & Checkered Gate at targetDistance = 90
+    const finishArch = this.buildFinishLine(90.0 - p6X, 0.43);
+    p6.group.add(finishArch);
+
+    // Golden Carrot Trophy beyond the finish line at x = 93.5
+    const trophy = this.buildGoalTrophy(93.5 - p6X, 0.43, false);
+    p6.group.add(trophy);
+
+    this.platformBlocks.push(p6);
+    this.rightmostX = p6.x + p6.width / 2;
+
     // Forward backup platforms
-    for (let i = 5; i < 9; i++) {
-      const p = this.generateNextPlatform(i);
+    for (let i = 1; i <= 3; i++) {
+      const p = this.generateNextPlatform(i + 6);
       this.platformBlocks.push(p);
     }
   }
@@ -528,13 +551,20 @@ export class GameEngine {
     this.platformBlocks.push(p8);
     this.rightmostX = p8.x + p8.width / 2;
 
-    // 9. Grand Skyline Finish Platform (Gap 3.4m, y=0.8, width=22)
+    // 9. Grand Skyline Finish Runway (Gap 3.4m, y=0.8, width=26)
     const p9Gap = 3.4;
-    const p9Width = 22;
+    const p9Width = 26;
     const p9X = this.rightmostX + p9Gap + p9Width / 2;
     const p9 = this.createPlatformBlock(p9X, 0.8, p9Width, false, true, false);
-    const trophy = this.buildGoalTrophy(p9X + 4.0, p9.y + 1.2, true);
+
+    // Finish Line Arch at x = 120.0
+    const finishArch = this.buildFinishLine(120.0 - p9X, 0.43);
+    p9.group.add(finishArch);
+
+    // Grand Cyan Crystal Star Trophy at x = 124.0
+    const trophy = this.buildGoalTrophy(124.0 - p9X, 0.43, true);
     p9.group.add(trophy);
+
     this.platformBlocks.push(p9);
     this.rightmostX = p9.x + p9.width / 2;
 
@@ -553,8 +583,28 @@ export class GameEngine {
     this.platformBlocks.push(startPlatform);
     this.rightmostX = startPlatform.x + startPlatform.width / 2;
 
-    for (let i = 1; i < 14; i++) {
-      const p = this.generateNextPlatform(i);
+    // Generate up to target distance
+    let step = 1;
+    while (this.rightmostX < this.targetDistance - 18) {
+      const p = this.generateNextPlatform(step++);
+      this.platformBlocks.push(p);
+    }
+
+    // Grand Finish Runway
+    const pFinWidth = 26;
+    const pFinX = this.rightmostX + 3.2 + pFinWidth / 2;
+    const pFin = this.createPlatformBlock(pFinX, 0.8, pFinWidth, false, true, false);
+    const finishArch = this.buildFinishLine(this.targetDistance - pFinX, 0.43);
+    pFin.group.add(finishArch);
+
+    const trophy = this.buildGoalTrophy(this.targetDistance + 4.0 - pFinX, 0.43, true);
+    pFin.group.add(trophy);
+
+    this.platformBlocks.push(pFin);
+    this.rightmostX = pFin.x + pFin.width / 2;
+
+    for (let i = 1; i <= 3; i++) {
+      const p = this.generateNextPlatform(step + i);
       this.platformBlocks.push(p);
     }
   }
@@ -584,6 +634,183 @@ export class GameEngine {
         active: true,
       });
     }
+  }
+
+  private getCheckeredTexture(): THREE.CanvasTexture {
+    if (this.checkeredTex) return this.checkeredTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#0a0e27';
+    ctx.fillRect(0, 0, 256, 64);
+    const rows = 2;
+    const cols = 8;
+    const cellW = 256 / cols;
+    const cellH = 64 / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#ffffff' : '#14182e';
+        ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+      }
+    }
+    ctx.strokeStyle = '#ffd214';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, 256, 64);
+    this.checkeredTex = new THREE.CanvasTexture(canvas);
+    this.checkeredTex.magFilter = THREE.NearestFilter;
+    this.checkeredTex.minFilter = THREE.LinearFilter;
+    return this.checkeredTex;
+  }
+
+  private getFinishBannerTexture(): THREE.CanvasTexture {
+    if (this.bannerTex) return this.bannerTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#0b1028';
+    ctx.fillRect(0, 0, 512, 128);
+
+    // Checkered border top & bottom
+    const bCols = 16;
+    const bW = 512 / bCols;
+    for (let c = 0; c < bCols; c++) {
+      ctx.fillStyle = c % 2 === 0 ? '#ffffff' : '#14182e';
+      ctx.fillRect(c * bW, 0, bW, 14);
+      ctx.fillStyle = c % 2 === 1 ? '#ffffff' : '#14182e';
+      ctx.fillRect(c * bW, 128 - 14, bW, 14);
+    }
+
+    // Glowing border frame
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, 508, 124);
+
+    // Glowing text
+    ctx.font = '900 52px "Arial Black", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#00f0ff';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ffd214';
+    ctx.fillText('🏁 FINISH 🏁', 256, 64);
+
+    this.bannerTex = new THREE.CanvasTexture(canvas);
+    this.bannerTex.magFilter = THREE.LinearFilter;
+    this.bannerTex.minFilter = THREE.LinearFilter;
+    return this.bannerTex;
+  }
+
+  /** Finish Line Arch Gate with checkered strip, dual towers, waving flags and glowing overhead banner */
+  private buildFinishLine(localX: number, localY: number): THREE.Group {
+    const finishGroup = new THREE.Group();
+    finishGroup.position.set(localX, localY, 0);
+
+    // 1. Checkered Ground Strip
+    const stripGeo = new THREE.PlaneGeometry(1.6, 4.4);
+    const stripMat = new THREE.MeshStandardMaterial({
+      map: this.getCheckeredTexture(),
+      roughness: 0.35,
+      metalness: 0.2,
+    });
+    const strip = new THREE.Mesh(stripGeo, stripMat);
+    strip.rotation.x = -Math.PI * 0.5;
+    strip.rotation.z = Math.PI * 0.5;
+    strip.position.set(0, 0.015, 0);
+    strip.receiveShadow = true;
+    finishGroup.add(strip);
+
+    // 2. Dual Futuristic Pylons (Left at z = -2.3, Right at z = 2.3)
+    const pillarGeo = new THREE.CylinderGeometry(0.18, 0.24, 4.2, 16);
+    const pillarMat = new THREE.MeshStandardMaterial({
+      color: '#131936',
+      roughness: 0.2,
+      metalness: 0.8,
+    });
+    const ringGeo = new THREE.TorusGeometry(0.26, 0.045, 8, 16);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: '#ffd214',
+      emissive: '#ff9900',
+      emissiveIntensity: 0.7,
+      metalness: 0.8,
+    });
+    const beaconGeo = new THREE.SphereGeometry(0.32, 16, 14);
+    const beaconMat = new THREE.MeshStandardMaterial({
+      color: '#ffd214',
+      emissive: '#ffd214',
+      emissiveIntensity: 0.9,
+    });
+    const flagGeo = new THREE.PlaneGeometry(0.85, 0.55);
+    const flagMat = new THREE.MeshBasicMaterial({
+      map: this.getCheckeredTexture(),
+      side: THREE.DoubleSide,
+    });
+
+    for (const z of [-2.3, 2.3]) {
+      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(0, 2.1, z);
+      pillar.castShadow = true;
+      finishGroup.add(pillar);
+
+      // Glowing rings
+      for (const ry of [0.9, 2.1, 3.3]) {
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI * 0.5;
+        ring.position.set(0, ry, z);
+        finishGroup.add(ring);
+      }
+
+      // Top Beacon
+      const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+      beacon.position.set(0, 4.3, z);
+      finishGroup.add(beacon);
+
+      // Checkered Flag
+      const flag = new THREE.Mesh(flagGeo, flagMat);
+      flag.position.set(0.42, 4.0, z);
+      finishGroup.add(flag);
+    }
+
+    // 3. Overhead Crossbar
+    const crossbarGeo = new THREE.BoxGeometry(0.35, 0.35, 4.8);
+    const crossbarMat = new THREE.MeshStandardMaterial({
+      color: '#1a2246',
+      roughness: 0.3,
+      metalness: 0.7,
+    });
+    const crossbar = new THREE.Mesh(crossbarGeo, crossbarMat);
+    crossbar.position.set(0, 4.15, 0);
+    crossbar.castShadow = true;
+    finishGroup.add(crossbar);
+
+    // 4. Overhead "🏁 FINISH 🏁" Signboard
+    const signGeo = new THREE.BoxGeometry(0.12, 0.95, 4.2);
+    const signMat = new THREE.MeshStandardMaterial({
+      map: this.getFinishBannerTexture(),
+      roughness: 0.25,
+      metalness: 0.4,
+      emissive: '#0b1028',
+      emissiveIntensity: 0.4,
+    });
+    const sign = new THREE.Mesh(signGeo, signMat);
+    sign.position.set(0, 3.45, 0);
+    finishGroup.add(sign);
+
+    // 5. Holographic Breakable Finish Ribbon (bunny chest height y = 0.85)
+    const ribbonGeo = new THREE.BoxGeometry(0.04, 0.22, 4.6);
+    const ribbonMat = new THREE.MeshStandardMaterial({
+      color: '#ff2a6d',
+      emissive: '#ff0055',
+      emissiveIntensity: 0.85,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
+    ribbon.position.set(0, 0.85, 0);
+    finishGroup.add(ribbon);
+
+    return finishGroup;
   }
 
   /** Trophy placed at the end of the stage */
@@ -1048,10 +1275,10 @@ export class GameEngine {
             this.spawnShieldBreakParticles(this.bunny.position.x, this.bunny.position.y);
             this.onEvent?.('shield-break');
           } else {
-            // Unshielded crash
+            // Unshielded crash - stop game and show defeat modal
+            this.running = false;
             this.audio.playHit();
             this.onEvent?.('hit');
-            this.restartLevel();
             return;
           }
         }
@@ -1117,11 +1344,12 @@ export class GameEngine {
       return;
     }
 
-    // Pit Fall Check
+    // Pit Fall Check - stop game and show defeat modal
     if (this.bunny.position.y < -5.5) {
+      this.running = false;
       this.audio.playFall();
       this.onEvent?.('fell');
-      this.restartLevel();
+      return;
     }
   }
 

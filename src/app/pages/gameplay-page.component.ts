@@ -260,6 +260,44 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
         </div>
       }
 
+      <!-- Defeat Game Over Modal -->
+      @if (modal() === 'gameover') {
+        <div class="overlay-backdrop">
+          <section class="arcade-dialog gameover-dialog" role="dialog" aria-modal="true" aria-labelledby="gameover-title">
+            <div class="dialog-mascot-wrap dizzy">
+              <img src="assets/bunny.png" alt="Dizzy Bunny" class="dialog-mascot" />
+              <div class="dizzy-stars">💥 💫 💥</div>
+            </div>
+
+            <span class="dialog-eyebrow failure-tag">{{ i18n.t.stageFailed }}</span>
+            <h1 id="gameover-title" class="dialog-title failure-title">{{ i18n.t.tryAgainTitle }}</h1>
+            <p class="dialog-desc">
+              {{ defeatReason() === 'hit' ? i18n.t.gameOverHitDesc : i18n.t.gameOverFellDesc }}
+            </p>
+
+            <div class="gameover-stats-banner">
+              <div class="gov-stat">
+                <span class="gov-stat-label">{{ i18n.t.distanceCovered }}</span>
+                <span class="gov-stat-val">🏃 {{ currentDistance() }} / {{ targetDistance() }}m</span>
+              </div>
+              <div class="gov-stat">
+                <span class="gov-stat-label">{{ i18n.t.coinsCollected }}</span>
+                <span class="gov-stat-val">🪙 {{ currentScore() }}</span>
+              </div>
+            </div>
+
+            <div class="result-actions">
+              <button class="btn-arcade btn-arcade-retry" (click)="retryLevel()">
+                <span>{{ i18n.t.retryStage }}</span>
+              </button>
+              <a routerLink="/levels" class="btn-arcade btn-arcade-secondary">
+                <span>{{ i18n.t.exitToStages }}</span>
+              </a>
+            </div>
+          </section>
+        </div>
+      }
+
       <!-- Gameplay In-Game Toast Notice -->
       @if (notice()) {
         <div class="game-notice-toast" [class.carrot-toast]="isCarrotNotice()">
@@ -276,7 +314,8 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly i18n = inject(TranslationService);
   level: GameLevel;
-  readonly modal = signal<'calibration' | 'results' | null>('calibration');
+  readonly modal = signal<'calibration' | 'results' | 'gameover' | null>('calibration');
+  readonly defeatReason = signal<'hit' | 'fell'>('hit');
   readonly notice = signal('');
   readonly noticeIcon = signal('💥');
   readonly isCarrotNotice = signal(false);
@@ -289,7 +328,7 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly voicePercent = signal(0);
 
   readonly isTutorial = computed(() => this.level.id === 1);
-  readonly targetDistance = computed(() => (this.level.id === 1 ? 92 : this.level.id === 2 ? 120 : 140));
+  readonly targetDistance = computed(() => (this.level.id === 1 ? 90 : this.level.id === 2 ? 120 : 140));
   readonly hasNextLevel = computed(() => this.level.id < 5);
   readonly nextLevelId = computed(() => this.level.id + 1);
 
@@ -507,6 +546,20 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modal.set('calibration');
   }
 
+  retryLevel(): void {
+    this.modal.set(null);
+    this.stopGameLoop();
+    if (this.engine) {
+      this.engine.reset();
+      this.engine.start((event) => this.onGameEvent(event));
+    }
+    this.currentScore.set(0);
+    this.currentDistance.set(0);
+    this.shieldActive.set(false);
+    this.shieldSeconds.set(0);
+    this.startGameLoop();
+  }
+
   restart(): void {
     this.stopGameLoop();
     this.engine?.dispose();
@@ -591,21 +644,10 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (event === 'hit') {
-      this.noticeIcon.set('💥');
-      this.isCarrotNotice.set(false);
-      this.currentDistance.set(0);
-      this.notice.set(this.i18n.t.obstacleHitNotice);
-      window.setTimeout(() => this.notice.set(''), 1800);
-      return;
-    }
-
-    if (event === 'fell') {
-      this.noticeIcon.set('💨');
-      this.isCarrotNotice.set(false);
-      this.currentDistance.set(0);
-      this.notice.set(this.i18n.t.fellNotice);
-      window.setTimeout(() => this.notice.set(''), 1800);
+    if (event === 'hit' || event === 'fell') {
+      this.stopGameLoop();
+      this.defeatReason.set(event);
+      this.modal.set('gameover');
       return;
     }
   }

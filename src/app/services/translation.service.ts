@@ -86,6 +86,14 @@ export interface Translations {
   nextStage: string;
   stagesMap: string;
   backToStages: string;
+  stageFailed: string;
+  tryAgainTitle: string;
+  gameOverHitDesc: string;
+  gameOverFellDesc: string;
+  retryStage: string;
+  exitToStages: string;
+  distanceCovered: string;
+  coinsCollected: string;
   obstacleHitNotice: string;
   fellNotice: string;
   coins: string;
@@ -188,6 +196,14 @@ const EN: Translations = {
   nextStage: 'NEXT STAGE ➔',
   stagesMap: 'STAGES MAP ➔',
   backToStages: 'Back to Stages',
+  stageFailed: 'STAGE FAILED!',
+  tryAgainTitle: "DON'T GIVE UP!",
+  gameOverHitDesc: 'Ouch! The bunny bumped into an obstacle! Jump higher or grab a Carrot Shield!',
+  gameOverFellDesc: 'Whoops! The bunny fell into the abyss! Shout louder into the mic to clear chasms!',
+  retryStage: 'RETRY STAGE 🔄',
+  exitToStages: 'STAGES MAP ➔',
+  distanceCovered: 'Distance',
+  coinsCollected: 'Coins',
   obstacleHitNotice: 'Obstacle hit! Try that jump again!',
   fellNotice: 'Whoops! Keep your voice up to clear the gap!',
   coins: 'Coins',
@@ -290,6 +306,14 @@ const UK: Translations = {
   nextStage: 'НАСТУПНИЙ РІВЕНЬ ➔',
   stagesMap: 'ДО РІВНІВ ➔',
   backToStages: 'Назад до рівнів',
+  stageFailed: 'РІВЕНЬ НЕ ПРОЙДЕНО!',
+  tryAgainTitle: 'СПРОБУЙ ЩЕ РАЗ!',
+  gameOverHitDesc: 'Ой! Зайчик зіткнувся з перешкодою! Стрибай вище або збирай Морквину з щитом!',
+  gameOverFellDesc: 'Ой! Зайчик зірвався у прірву! Крикни голосніше у мікрофон, щоб перелетіти прогалину!',
+  retryStage: 'ПОВТОРИТИ РІВЕНЬ 🔄',
+  exitToStages: 'ДО РІВНІВ ➔',
+  distanceCovered: 'Пройдено',
+  coinsCollected: 'Монети',
   obstacleHitNotice: 'Удар об перешкоду! Спробуй стрибок ще раз!',
   fellNotice: 'Ой! Тримай голос голосніше, щоб не впасти!',
   coins: 'Монети',

@@ -543,3 +543,93 @@
     text-align: center;
   }
 }
+
+/* Landscape Mobile Phone Adaptation */
+@media (orientation: landscape) and (max-height: 520px), (max-height: 520px) {
+  .home-shell {
+    padding: 8px calc(env(safe-area-inset-right, 16px) + 12px) 8px calc(env(safe-area-inset-left, 16px) + 12px);
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-y: auto;
+  }
+
+  .top-nav {
+    margin-bottom: 4px;
+  }
+
+  .logo-badge {
+    padding: 4px 10px 4px 6px;
+    .nav-bunny-icon { width: 28px; height: 28px; }
+    .brand-name { font-size: 1.1rem; }
+  }
+
+  .nav-btn-tutorial {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+  }
+
+  .hero-container {
+    grid-template-columns: 1.3fr 1fr;
+    text-align: left;
+    align-items: center;
+    gap: 16px;
+    margin: 0 auto;
+  }
+
+  .hero-content {
+    align-items: flex-start;
+  }
+
+  .hero-pill {
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .hero-tagline {
+    font-size: 0.85rem;
+    line-height: 1.3;
+    margin-bottom: 10px;
+  }
+
+  .hero-cta-group {
+    gap: 10px;
+    .btn-arcade {
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+    .btn-arcade-secondary {
+      padding: 10px 18px;
+      font-size: 0.9rem;
+    }
+  }
+
+  .mascot-display {
+    order: 0;
+  }
+
+  .bunny-glow-wrap {
+    width: 140px;
+    height: 140px;
+  }
+
+  .speech-bubble {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    margin-bottom: 6px;
+  }
+
+  .feature-strip {
+    display: none;
+  }
+
+  .home-footer {
+    display: none;
+  }
+}

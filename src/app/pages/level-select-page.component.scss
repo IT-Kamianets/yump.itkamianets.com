@@ -305,3 +305,73 @@
     display: none;
   }
 }
+
+/* Landscape Mobile Phone Adaptation */
+@media (orientation: landscape) and (max-height: 520px), (max-height: 520px) {
+  .levels-shell {
+    padding: 10px calc(env(safe-area-inset-right, 16px) + 12px) 10px calc(env(safe-area-inset-left, 16px) + 12px);
+  }
+
+  .levels-header {
+    margin-bottom: 8px;
+  }
+
+  .btn-back {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
+
+  .header-center {
+    .header-eyebrow {
+      font-size: 0.7rem;
+    }
+    .header-title {
+      font-size: 1.5rem;
+    }
+  }
+
+  .header-mascot {
+    width: 48px;
+    height: 48px;
+  }
+
+  .levels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .level-card {
+    padding: 12px 14px;
+    border-radius: 16px;
+
+    .card-top {
+      margin-bottom: 6px;
+    }
+
+    .level-num {
+      font-size: 1.3rem;
+    }
+
+    .level-card-title {
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+    }
+
+    .level-card-desc {
+      font-size: 0.78rem;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+
+    .btn-play-level {
+      padding: 6px 14px;
+      font-size: 0.82rem;
+    }
+  }
+
+  .levels-footer {
+    padding-top: 8px;
+    font-size: 0.75rem;
+  }
+}

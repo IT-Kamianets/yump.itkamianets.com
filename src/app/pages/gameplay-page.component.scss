@@ -853,6 +853,81 @@
   }
 }
 
+/* Defeat Game Over Modal */
+.gameover-dialog {
+  border-color: rgba(255, 77, 109, 0.4);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75), 0 0 35px rgba(255, 77, 109, 0.25);
+}
+
+.failure-tag {
+  color: #ff4d6d;
+}
+
+.failure-title {
+  color: #ffffff;
+  text-shadow: 0 4px 15px rgba(255, 77, 109, 0.45);
+}
+
+.dizzy-stars {
+  position: absolute;
+  top: -12px;
+  font-size: 1.4rem;
+  animation: dizzySpin 2.5s ease-in-out infinite alternate;
+  filter: drop-shadow(0 2px 8px rgba(255, 77, 109, 0.8));
+}
+
+@keyframes dizzySpin {
+  0% {
+    transform: rotate(-10deg) scale(0.95);
+  }
+  100% {
+    transform: rotate(10deg) scale(1.1);
+  }
+}
+
+.gameover-stats-banner {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(255, 40, 80, 0.08);
+  border: 1px solid rgba(255, 77, 109, 0.28);
+  border-radius: 16px;
+  padding: 14px 20px;
+  margin: 16px 0 20px;
+
+  .gov-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .gov-stat-label {
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #ff99ab;
+    }
+
+    .gov-stat-val {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: #ffffff;
+    }
+  }
+}
+
+.btn-arcade-retry {
+  background: linear-gradient(180deg, #a3ff2e 0%, #22b800 100%) !important;
+  border-color: #c4ff66 !important;
+  color: #081d00 !important;
+  font-weight: 900 !important;
+  box-shadow: 0 4px 18px rgba(163, 255, 46, 0.45) !important;
+
+  &:hover {
+    background: linear-gradient(180deg, #b8ff52 0%, #2bd400 100%) !important;
+    transform: translateY(-2px);
+  }
+}
+
 /* Responsive */
 @media (max-width: 650px) {
   .game-hud-top {
@@ -900,5 +975,273 @@
 
   .result-actions {
     flex-direction: column;
+  }
+}
+
+/* Landscape Mobile Phone Adaptation (iOS & Android horizontal orientation) */
+@media (orientation: landscape) and (max-height: 520px), (max-height: 520px) {
+  .game-shell {
+    touch-action: manipulation;
+  }
+
+  .game-hud-top {
+    padding: 6px calc(env(safe-area-inset-right, 16px) + 12px) 6px calc(env(safe-area-inset-left, 16px) + 12px);
+  }
+
+  .hud-btn-back {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+  }
+
+  .stage-pill {
+    padding: 3px 10px;
+
+    .stage-tag {
+      font-size: 0.72rem;
+    }
+
+    .stage-title {
+      font-size: 0.92rem;
+    }
+  }
+
+  .hud-stat-pill {
+    padding: 3px 10px;
+    font-size: 0.82rem;
+
+    .pill-icon {
+      font-size: 0.95rem;
+    }
+  }
+
+  .hud-btn-settings {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* Compact top progress bar in landscape */
+  .stage-progress-card {
+    top: 46px;
+    width: min(340px, calc(100vw - 220px));
+    padding: 4px 12px 6px;
+    border-radius: 14px;
+
+    .progress-meta {
+      margin-bottom: 2px;
+      font-size: 0.72rem;
+    }
+
+    .progress-node .node-icon {
+      font-size: 0.9rem;
+    }
+
+    .progress-center-badge {
+      padding: 2px 8px;
+
+      .progress-stage-name {
+        font-size: 0.7rem;
+      }
+      .progress-pct {
+        font-size: 0.75rem;
+      }
+    }
+
+    .progress-track {
+      height: 6px;
+    }
+
+    .progress-runner-pin {
+      width: 20px;
+      height: 20px;
+
+      .runner-emoji {
+        font-size: 0.72rem;
+      }
+    }
+  }
+
+  /* Compact tutorial card in landscape */
+  .tutorial-live-card {
+    top: 44px;
+    width: min(440px, calc(100vw - 120px));
+    padding: 6px 14px;
+    border-radius: 16px;
+
+    .tut-icon-badge {
+      font-size: 1.4rem;
+    }
+
+    .tut-step-tag {
+      font-size: 0.65rem;
+    }
+
+    .tut-step-title {
+      font-size: 0.92rem;
+    }
+
+    .tut-step-desc {
+      font-size: 0.75rem;
+      line-height: 1.25;
+      margin: 1px 0 0;
+    }
+  }
+
+  /* Compact Voice Cockpit floating unobtrusively at bottom-left */
+  .voice-cockpit {
+    left: calc(env(safe-area-inset-left, 16px) + 12px);
+    right: auto;
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 6px);
+    width: 220px;
+    padding: 6px 12px;
+    border-radius: 14px;
+
+    .cockpit-top {
+      margin-bottom: 3px;
+    }
+
+    .cockpit-label {
+      font-size: 0.68rem;
+    }
+
+    .cockpit-val {
+      font-size: 0.95rem;
+    }
+
+    .eq-bars {
+      height: 16px;
+      margin-bottom: 3px;
+    }
+
+    .cockpit-meter {
+      height: 5px;
+      margin-bottom: 3px;
+    }
+
+    .cockpit-msg {
+      font-size: 0.68rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* Compact Tip Pill at bottom-right */
+  .game-tip-pill {
+    display: inline-flex;
+    right: calc(env(safe-area-inset-right, 16px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 6px);
+    padding: 4px 10px;
+    font-size: 0.75rem;
+
+    .tip-sound-icon {
+      font-size: 0.85rem;
+    }
+  }
+
+  /* Fully contained landscape modal dialogs */
+  .overlay-backdrop {
+    padding: 6px calc(env(safe-area-inset-right, 16px) + 12px) 6px calc(env(safe-area-inset-left, 16px) + 12px);
+    overflow-y: auto;
+  }
+
+  .arcade-dialog {
+    max-height: 96vh;
+    max-width: 540px;
+    padding: 10px 18px;
+    border-radius: 18px;
+    overflow-y: auto;
+
+    .dialog-close-btn {
+      top: 8px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      font-size: 0.85rem;
+    }
+  }
+
+  .dialog-mascot-wrap,
+  .dialog-mascot-wrap.celebration,
+  .dialog-mascot-wrap.dizzy {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 2px;
+  }
+
+  .dialog-eyebrow {
+    font-size: 0.68rem;
+  }
+
+  .dialog-title {
+    font-size: 1.4rem;
+    margin: 1px 0 3px;
+  }
+
+  .dialog-desc {
+    font-size: 0.82rem;
+    line-height: 1.25;
+    margin: 0 auto 6px;
+    max-width: 480px;
+  }
+
+  .victory-stats-banner,
+  .gameover-stats-banner {
+    padding: 5px 14px;
+    margin: 4px 0 8px;
+    gap: 20px;
+    border-radius: 12px;
+
+    .vic-stat-label,
+    .gov-stat-label {
+      font-size: 0.68rem;
+    }
+
+    .vic-stat-val,
+    .gov-stat-val {
+      font-size: 1.15rem;
+    }
+  }
+
+  .result-actions {
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 6px;
+
+    .btn-arcade {
+      padding: 8px 14px;
+      font-size: 0.92rem;
+    }
+  }
+
+  .cal-status-box {
+    padding: 8px 14px;
+    margin-bottom: 6px;
+    border-radius: 12px;
+
+    .spinner {
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+    }
+
+    .cal-prompt,
+    .ready-text {
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+  }
+
+  .cal-progress-track {
+    height: 8px;
+    margin-bottom: 4px;
+  }
+
+  .cal-actions-stack {
+    flex-direction: row;
+    gap: 8px;
+
+    .cta-modal {
+      padding: 8px 14px;
+      font-size: 0.95rem;
+    }
   }
 }
