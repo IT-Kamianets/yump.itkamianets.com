@@ -57,6 +57,39 @@ interface CarrotItem {
   active: boolean;
 }
 
+export interface LevelThemeConfig {
+  skyGradient: [string, string, string];
+  clearColor: string;
+  fogColor: string;
+  fogNear: number;
+  fogFar: number;
+  ambientColor: string;
+  ambientIntensity: number;
+  hemiSkyColor: string;
+  hemiGroundColor: string;
+  hemiIntensity: number;
+  dirLightColor: string;
+  dirLightIntensity: number;
+  earthColor: string;
+  earthStrataColor: string;
+  grassColor: string;
+  grassEmissive: string;
+  grassTrimColor: string;
+  hasFlowers: boolean;
+  celestialType: 'sun' | 'moon' | 'sunset' | 'planet' | 'aurora-moon';
+  celestialColor: string;
+  celestialEmissive: string;
+  celestialSize: number;
+  celestialY: number;
+  hasRings?: boolean;
+  mountainsFarColor: string;
+  mountainsNearColor: string;
+  mountainsPeakStyle: 'rolling' | 'cyber' | 'canyon' | 'crystal' | 'alpine';
+  hasClouds: boolean;
+  hasStars: boolean;
+  hasAurora: boolean;
+}
+
 export class GameEngine {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(46, 1, 0.1, 120);
@@ -103,7 +136,15 @@ export class GameEngine {
   private squashTime = 0;
 
   // Materials & Geometries cache
+  public readonly theme: LevelThemeConfig;
   private backdropMesh?: THREE.Mesh;
+  private celestialMesh?: THREE.Mesh;
+  private farMountainGroup = new THREE.Group();
+  private nearMountainGroup = new THREE.Group();
+  private clouds: THREE.Group[] = [];
+  private starsMesh?: THREE.Points;
+  private auroraMesh?: THREE.Mesh;
+  private skyTexture?: THREE.CanvasTexture;
   private goalTrophy?: THREE.Group;
   private checkeredTex?: THREE.CanvasTexture;
   private bannerTex?: THREE.CanvasTexture;
@@ -132,10 +173,15 @@ export class GameEngine {
     return 140;
   }
 
-  constructor(private readonly host: HTMLElement, private readonly level: GameLevel) {
+  constructor(
+    private readonly host: HTMLElement,
+    private readonly level: GameLevel,
+    private readonly onReady?: () => void,
+  ) {
+    this.theme = this.getLevelTheme(level.id);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor('#0a0e27');
+    this.renderer.setClearColor(this.theme.clearColor);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -222,10 +268,183 @@ export class GameEngine {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.handleKeyDown);
     this.audio.dispose();
+    this.skyTexture?.dispose();
     this.checkeredTex?.dispose();
     this.bannerTex?.dispose();
     this.renderer.dispose();
     this.host.replaceChildren();
+  }
+
+  private getLevelTheme(id: number): LevelThemeConfig {
+    switch (id) {
+      case 1:
+        // Level 1 (Tutorial): Sunny Cartoon Morning Meadow
+        return {
+          skyGradient: ['#2980b9', '#6dd5fa', '#d8f4ff'],
+          clearColor: '#6dd5fa',
+          fogColor: '#bbf0ff',
+          fogNear: 36,
+          fogFar: 95,
+          ambientColor: '#ffffff',
+          ambientIntensity: 1.25,
+          hemiSkyColor: '#cdeeff',
+          hemiGroundColor: '#553311',
+          hemiIntensity: 1.4,
+          dirLightColor: '#fffdf0',
+          dirLightIntensity: 2.8,
+          earthColor: '#5a3d28',
+          earthStrataColor: '#3e2817',
+          grassColor: '#44bd32',
+          grassEmissive: '#1b5e20',
+          grassTrimColor: '#3bb129',
+          hasFlowers: true,
+          celestialType: 'sun',
+          celestialColor: '#fff6b7',
+          celestialEmissive: '#ffd214',
+          celestialSize: 5.5,
+          celestialY: 17,
+          mountainsFarColor: '#529ab8',
+          mountainsNearColor: '#42784d',
+          mountainsPeakStyle: 'rolling',
+          hasClouds: true,
+          hasStars: false,
+          hasAurora: false,
+        };
+      case 2:
+        // Level 2: Cyber Twilight Oasis
+        return {
+          skyGradient: ['#040716', '#09163a', '#0a3556'],
+          clearColor: '#060b1e',
+          fogColor: '#0c1938',
+          fogNear: 30,
+          fogFar: 82,
+          ambientColor: '#7fe3ff',
+          ambientIntensity: 0.9,
+          hemiSkyColor: '#00e5ff',
+          hemiGroundColor: '#0b1024',
+          hemiIntensity: 1.6,
+          dirLightColor: '#a6f0ff',
+          dirLightIntensity: 2.2,
+          earthColor: '#1e2638',
+          earthStrataColor: '#131926',
+          grassColor: '#00d29d',
+          grassEmissive: '#00f0ff',
+          grassTrimColor: '#00b894',
+          hasFlowers: false,
+          celestialType: 'moon',
+          celestialColor: '#9be8ff',
+          celestialEmissive: '#00d5ff',
+          celestialSize: 4.8,
+          celestialY: 16,
+          mountainsFarColor: '#0c1a3b',
+          mountainsNearColor: '#092849',
+          mountainsPeakStyle: 'cyber',
+          hasClouds: false,
+          hasStars: true,
+          hasAurora: false,
+        };
+      case 3:
+        // Level 3: Sunset Canyon
+        return {
+          skyGradient: ['#1f0624', '#781534', '#e2583e'],
+          clearColor: '#240a1b',
+          fogColor: '#361122',
+          fogNear: 32,
+          fogFar: 85,
+          ambientColor: '#ffd0b0',
+          ambientIntensity: 1.1,
+          hemiSkyColor: '#ff9f43',
+          hemiGroundColor: '#3a1410',
+          hemiIntensity: 1.5,
+          dirLightColor: '#ffeedd',
+          dirLightIntensity: 2.6,
+          earthColor: '#683424',
+          earthStrataColor: '#481f14',
+          grassColor: '#e5a93b',
+          grassEmissive: '#ff9f1a',
+          grassTrimColor: '#cc8a22',
+          hasFlowers: false,
+          celestialType: 'sunset',
+          celestialColor: '#ffb347',
+          celestialEmissive: '#ff3838',
+          celestialSize: 7.0,
+          celestialY: 11,
+          mountainsFarColor: '#521c27',
+          mountainsNearColor: '#6b241c',
+          mountainsPeakStyle: 'canyon',
+          hasClouds: true,
+          hasStars: false,
+          hasAurora: false,
+        };
+      case 4:
+        // Level 4: Cosmic Violet Nebula
+        return {
+          skyGradient: ['#070212', '#1c0733', '#481566'],
+          clearColor: '#0a0319',
+          fogColor: '#140828',
+          fogNear: 28,
+          fogFar: 78,
+          ambientColor: '#dfb0ff',
+          ambientIntensity: 0.95,
+          hemiSkyColor: '#be2edd',
+          hemiGroundColor: '#150824',
+          hemiIntensity: 1.7,
+          dirLightColor: '#f3d9fa',
+          dirLightIntensity: 2.3,
+          earthColor: '#221634',
+          earthStrataColor: '#150d22',
+          grassColor: '#a855f7',
+          grassEmissive: '#c084fc',
+          grassTrimColor: '#9333ea',
+          hasFlowers: false,
+          celestialType: 'planet',
+          celestialColor: '#e0aaff',
+          celestialEmissive: '#9d4edd',
+          celestialSize: 5.2,
+          celestialY: 15,
+          hasRings: true,
+          mountainsFarColor: '#210b38',
+          mountainsNearColor: '#341154',
+          mountainsPeakStyle: 'crystal',
+          hasClouds: false,
+          hasStars: true,
+          hasAurora: false,
+        };
+      case 5:
+      default:
+        // Level 5: Emerald Aurora Peaks
+        return {
+          skyGradient: ['#02050e', '#051426', '#092536'],
+          clearColor: '#040a16',
+          fogColor: '#071526',
+          fogNear: 32,
+          fogFar: 82,
+          ambientColor: '#a8ffea',
+          ambientIntensity: 1.1,
+          hemiSkyColor: '#00f5d4',
+          hemiGroundColor: '#08161c',
+          hemiIntensity: 1.8,
+          dirLightColor: '#e6fff9',
+          dirLightIntensity: 2.6,
+          earthColor: '#1b2531',
+          earthStrataColor: '#101821',
+          grassColor: '#10b981',
+          grassEmissive: '#34d399',
+          grassTrimColor: '#059669',
+          hasFlowers: false,
+          celestialType: 'aurora-moon',
+          celestialColor: '#e6ffff',
+          celestialEmissive: '#70e000',
+          celestialSize: 4.6,
+          celestialY: 16,
+          mountainsFarColor: '#0a1e2f',
+          mountainsNearColor: '#0f2d42',
+          mountainsPeakStyle: 'alpine',
+          hasClouds: false,
+          hasStars: true,
+          hasAurora: true,
+        };
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -233,16 +452,25 @@ export class GameEngine {
   // ---------------------------------------------------------------------------
 
   private buildScene(): void {
-    this.scene.fog = new THREE.Fog('#0a0e27', 26, 75);
+    // 1. Dynamic Fog from theme
+    this.scene.fog = new THREE.Fog(this.theme.fogColor, this.theme.fogNear, this.theme.fogFar);
 
-    // Camera initial framing - comfortably framing the bunny and platforms
+    // 2. Camera initial framing - comfortably framing the bunny and platforms
     this.camera.position.set(4, 2.9, 10.4);
     this.camera.lookAt(3.0, 1.4, 0);
 
-    // Dynamic Lighting
+    // 3. Dynamic Lighting from theme
+    this.ambientLight.color.set(this.theme.ambientColor);
+    this.ambientLight.intensity = this.theme.ambientIntensity;
     this.scene.add(this.ambientLight);
+
+    this.hemisphereLight.color.set(this.theme.hemiSkyColor);
+    this.hemisphereLight.groundColor.set(this.theme.hemiGroundColor);
+    this.hemisphereLight.intensity = this.theme.hemiIntensity;
     this.scene.add(this.hemisphereLight);
 
+    this.dirLight.color.set(this.theme.dirLightColor);
+    this.dirLight.intensity = this.theme.dirLightIntensity;
     this.dirLight.position.set(5, 12, 9);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.set(1024, 1024);
@@ -254,24 +482,209 @@ export class GameEngine {
     this.dirLight.shadow.camera.bottom = -10;
     this.scene.add(this.dirLight);
 
-    // Deep Space Backdrop with star grid illusion
-    const backdropGeo = new THREE.PlaneGeometry(240, 80);
-    const backdropMat = new THREE.MeshBasicMaterial({ color: '#070a1e' });
-    this.backdropMesh = new THREE.Mesh(backdropGeo, backdropMat);
-    this.backdropMesh.position.set(4, 8, -14);
-    this.scene.add(this.backdropMesh);
+    // 4. Custom Atmospheric 3D Backdrop for each level
+    this.buildBackground();
 
-    // Build Shield meshes
+    // 5. Build Shield meshes
     this.buildShieldVisuals();
 
-    // Setup Bunny container
+    // 6. Setup Bunny container
     this.bunny.add(this.modelWrapper);
     this.buildFallbackBunny();
     this.scene.add(this.bunny);
 
-    // Initial platform generation
+    // 7. Initial platform generation
     this.rebuildAllPlatforms();
     this.placeBunnyAtStart();
+  }
+
+  /** Build rich, level-specific animated 3D sky, celestial body, mountains, and ambiance */
+  private buildBackground(): void {
+    const theme = this.theme;
+
+    // 1. Sky Backdrop Plane with Canvas Gradient
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, theme.skyGradient[0]);
+    grad.addColorStop(0.55, theme.skyGradient[1]);
+    grad.addColorStop(1, theme.skyGradient[2]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 256);
+
+    this.skyTexture = new THREE.CanvasTexture(canvas);
+    const skyGeo = new THREE.PlaneGeometry(360, 110);
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: this.skyTexture,
+      depthWrite: false,
+    });
+    this.backdropMesh = new THREE.Mesh(skyGeo, skyMat);
+    this.backdropMesh.position.set(4, 22, -38);
+    this.scene.add(this.backdropMesh);
+
+    // 2. Celestial Orb (Sun / Moon / Sunset / Gas Giant)
+    const celGeo = new THREE.SphereGeometry(theme.celestialSize, 24, 20);
+    const celMat = new THREE.MeshBasicMaterial({
+      color: theme.celestialColor,
+    });
+    this.celestialMesh = new THREE.Mesh(celGeo, celMat);
+    this.celestialMesh.position.set(10, theme.celestialY, -33);
+    this.scene.add(this.celestialMesh);
+
+    // Sun / Moon Glow Corona or Planetary Rings
+    if (theme.celestialType === 'sun' || theme.celestialType === 'sunset') {
+      const haloGeo = new THREE.RingGeometry(theme.celestialSize * 1.05, theme.celestialSize * 1.45, 32);
+      const haloMat = new THREE.MeshBasicMaterial({
+        color: theme.celestialEmissive,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide,
+      });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.position.set(10, theme.celestialY, -33.1);
+      this.scene.add(halo);
+    } else if (theme.hasRings) {
+      const ringGeo = new THREE.RingGeometry(theme.celestialSize * 1.25, theme.celestialSize * 2.05, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: theme.celestialEmissive,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI * 0.35;
+      ring.rotation.y = Math.PI * 0.1;
+      ring.position.set(10, theme.celestialY, -33);
+      this.scene.add(ring);
+    }
+
+    // 3. Parallax Mountains & Hills
+    this.buildMountains();
+
+    // 4. Floating Clouds (Level 1 & 3)
+    if (theme.hasClouds) {
+      this.buildClouds();
+    }
+
+    // 5. Starfield Particles (Level 2, 4, 5)
+    if (theme.hasStars) {
+      this.buildStars();
+    }
+
+    // 6. Aurora Borealis Ribbon (Level 5)
+    if (theme.hasAurora) {
+      this.buildAurora();
+    }
+  }
+
+  private buildMountains(): void {
+    const theme = this.theme;
+
+    // Far mountain ridge (z = -28)
+    this.farMountainGroup = new THREE.Group();
+    const farMat = new THREE.MeshStandardMaterial({
+      color: theme.mountainsFarColor,
+      roughness: 0.95,
+      metalness: 0.05,
+    });
+    for (let x = -50; x <= 220; x += 14) {
+      const peakH = 15 + Math.sin(x * 0.12) * 4;
+      const peakGeo = new THREE.ConeGeometry(7 + Math.sin(x * 0.2) * 2, peakH, 4);
+      const peak = new THREE.Mesh(peakGeo, farMat);
+      peak.rotation.y = Math.PI * 0.25;
+      peak.position.set(x, peakH * 0.5 - 2, -28);
+      this.farMountainGroup.add(peak);
+    }
+    this.scene.add(this.farMountainGroup);
+
+    // Near mountain / hill ridge (z = -19)
+    this.nearMountainGroup = new THREE.Group();
+    const nearMat = new THREE.MeshStandardMaterial({
+      color: theme.mountainsNearColor,
+      roughness: 0.9,
+      metalness: 0.08,
+    });
+    for (let x = -45; x <= 220; x += 11) {
+      const hillH = 9 + Math.cos(x * 0.15) * 3;
+      const hillGeo = new THREE.ConeGeometry(5.5 + Math.sin(x * 0.3) * 1.5, hillH, 5);
+      const hill = new THREE.Mesh(hillGeo, nearMat);
+      hill.rotation.y = Math.PI * 0.2;
+      hill.position.set(x, hillH * 0.5 - 2, -19);
+      this.nearMountainGroup.add(hill);
+    }
+    this.scene.add(this.nearMountainGroup);
+  }
+
+  private buildClouds(): void {
+    this.clouds = [];
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.85,
+      transparent: true,
+      opacity: 0.85,
+    });
+
+    for (let i = 0; i < 14; i++) {
+      const cloud = new THREE.Group();
+      const s1 = new THREE.Mesh(new THREE.SphereGeometry(1.6, 10, 8), cloudMat);
+      const s2 = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), cloudMat);
+      s2.position.set(1.5, 0.2, 0);
+      const s3 = new THREE.Mesh(new THREE.SphereGeometry(1.5, 10, 8), cloudMat);
+      s3.position.set(-1.4, -0.1, 0);
+      const s4 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), cloudMat);
+      s4.position.set(0.6, 1.1, 0.2);
+
+      cloud.add(s1, s2, s3, s4);
+      const startX = -20 + i * 16 + (Math.random() * 8 - 4);
+      const startY = 11 + Math.random() * 8;
+      const startZ = -15 - Math.random() * 8;
+      cloud.position.set(startX, startY, startZ);
+      cloud.userData = { speed: 0.4 + Math.random() * 0.6 };
+      this.clouds.push(cloud);
+      this.scene.add(cloud);
+    }
+  }
+
+  private buildStars(): void {
+    const starsGeo = new THREE.BufferGeometry();
+    const starCount = 70;
+    const positions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 260;
+      positions[i * 3 + 1] = 6 + Math.random() * 28;
+      positions[i * 3 + 2] = -33 - Math.random() * 4;
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const starsMat = new THREE.PointsMaterial({
+      color: '#ffffff',
+      size: 0.45,
+      transparent: true,
+      opacity: 0.85,
+    });
+    this.starsMesh = new THREE.Points(starsGeo, starsMat);
+    this.scene.add(this.starsMesh);
+  }
+
+  private buildAurora(): void {
+    const auroraGeo = new THREE.PlaneGeometry(280, 18, 32, 6);
+    const pos = auroraGeo.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      pos.setY(i, pos.getY(i) + Math.sin(vx * 0.08) * 3.5 + Math.cos(vx * 0.15) * 1.5);
+    }
+    auroraGeo.computeVertexNormals();
+    const auroraMat = new THREE.MeshBasicMaterial({
+      color: '#00f5d4',
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    this.auroraMesh = new THREE.Mesh(auroraGeo, auroraMat);
+    this.auroraMesh.position.set(10, 22, -31);
+    this.scene.add(this.auroraMesh);
   }
 
   /** Glowing futuristic shield bubble around the rabbit */
@@ -356,10 +769,15 @@ export class GameEngine {
         if (!this.running) {
           this.renderer.render(this.scene, this.camera);
         }
+        this.onReady?.();
       },
       undefined,
       (err) => {
         console.warn('Could not load bunny GLB model, using arcade fallback:', err);
+        if (!this.running) {
+          this.renderer.render(this.scene, this.camera);
+        }
+        this.onReady?.();
       },
     );
   }
@@ -935,29 +1353,68 @@ export class GameEngine {
     const group = new THREE.Group();
     group.position.set(x, y, 0);
 
-    // Main 3D platform body
-    const baseGeo = new THREE.BoxGeometry(width, 0.85, 3.4);
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: this.level.accent,
-      roughness: 0.4,
-      metalness: 0.18,
+    // 1. Earth / Soil Body
+    const soilGeo = new THREE.BoxGeometry(width, 0.85, 3.4);
+    const soilMat = new THREE.MeshStandardMaterial({
+      color: this.theme.earthColor,
+      roughness: 0.95,
+      metalness: 0.05,
     });
-    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-    baseMesh.castShadow = true;
-    baseMesh.receiveShadow = true;
-    group.add(baseMesh);
+    const soilMesh = new THREE.Mesh(soilGeo, soilMat);
+    soilMesh.castShadow = true;
+    soilMesh.receiveShadow = true;
+    group.add(soilMesh);
 
-    // Glowing Neon top plate
-    const topPlateGeo = new THREE.BoxGeometry(width - 0.08, 0.1, 3.25);
-    const topPlateMat = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      emissive: this.level.accent,
-      emissiveIntensity: 0.4,
-      roughness: 0.2,
+    // Darker geological strata on lower portion of soil
+    const strataGeo = new THREE.BoxGeometry(width + 0.02, 0.32, 3.42);
+    const strataMat = new THREE.MeshStandardMaterial({
+      color: this.theme.earthStrataColor,
+      roughness: 0.98,
+      metalness: 0.02,
     });
-    const topPlate = new THREE.Mesh(topPlateGeo, topPlateMat);
-    topPlate.position.y = 0.43;
-    group.add(topPlate);
+    const strataMesh = new THREE.Mesh(strataGeo, strataMat);
+    strataMesh.position.y = -0.26;
+    strataMesh.receiveShadow = true;
+    group.add(strataMesh);
+
+    // 2. Lush Grass Top Cap
+    const grassThickness = 0.18;
+    const grassGeo = new THREE.BoxGeometry(width + 0.12, grassThickness, 3.52);
+    const grassMat = new THREE.MeshStandardMaterial({
+      color: this.theme.grassColor,
+      emissive: this.theme.grassEmissive,
+      emissiveIntensity: 0.2,
+      roughness: 0.75,
+      metalness: 0.06,
+    });
+    const grassMesh = new THREE.Mesh(grassGeo, grassMat);
+    grassMesh.position.y = 0.425 - grassThickness / 2;
+    grassMesh.castShadow = true;
+    grassMesh.receiveShadow = true;
+    group.add(grassMesh);
+
+    // 3. Scalloped Grass Hanging Tufts along the front edge (facing player)
+    const tuftSpacing = 0.65;
+    const numTufts = Math.max(2, Math.floor(width / tuftSpacing));
+    const tuftGeo = new THREE.ConeGeometry(0.14, 0.22, 4);
+    tuftGeo.rotateZ(Math.PI);
+    const tuftMat = new THREE.MeshStandardMaterial({
+      color: this.theme.grassTrimColor,
+      emissive: this.theme.grassEmissive,
+      emissiveIntensity: 0.15,
+      roughness: 0.8,
+    });
+    for (let i = 0; i < numTufts; i++) {
+      const tuftX = -width / 2 + (i + 0.5) * (width / numTufts);
+      const tuft = new THREE.Mesh(tuftGeo, tuftMat);
+      tuft.position.set(tuftX, 0.24, 1.76);
+      group.add(tuft);
+    }
+
+    // 4. Daisy Flowers on safe platforms in Level 1
+    if (this.theme.hasFlowers && width >= 5.5 && !hasHazard) {
+      this.spawnDaisyClusters(group, width);
+    }
 
     let hazard: HazardBlock | undefined;
     const coins: CoinItem[] = [];
@@ -1033,8 +1490,8 @@ export class GameEngine {
 
     return {
       group,
-      baseMesh,
-      topPlate,
+      baseMesh: soilMesh,
+      topPlate: grassMesh,
       x,
       y,
       width,
@@ -1042,6 +1499,39 @@ export class GameEngine {
       coins,
       carrot,
     };
+  }
+
+  private spawnDaisyClusters(group: THREE.Group, width: number): void {
+    const flowerGeo = new THREE.SphereGeometry(0.06, 8, 6);
+    const flowerMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 });
+    const centerMat = new THREE.MeshStandardMaterial({ color: '#ffcc00', roughness: 0.3 });
+    const stemMat = new THREE.MeshStandardMaterial({ color: '#2d8a35', roughness: 0.6 });
+
+    const numFlowers = Math.min(3, Math.floor(width / 4.0));
+    for (let i = 0; i < numFlowers; i++) {
+      const fGroup = new THREE.Group();
+      const fx = -width * 0.3 + (i / Math.max(1, numFlowers - 1)) * width * 0.6 + (Math.random() * 0.4 - 0.2);
+      const fz = (Math.random() - 0.5) * 1.6;
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.16, 5), stemMat);
+      stem.position.y = 0.48;
+      fGroup.add(stem);
+
+      const center = new THREE.Mesh(flowerGeo, centerMat);
+      center.position.y = 0.57;
+      fGroup.add(center);
+
+      for (let p = 0; p < 4; p++) {
+        const petal = new THREE.Mesh(flowerGeo, flowerMat);
+        const ang = (p / 4) * Math.PI * 2;
+        petal.position.set(Math.cos(ang) * 0.08, 0.57, Math.sin(ang) * 0.08);
+        petal.scale.set(1.2, 0.5, 1.2);
+        fGroup.add(petal);
+      }
+
+      fGroup.position.set(fx, 0, fz);
+      group.add(fGroup);
+    }
   }
 
   /** Build 3D Carrot collectible model */
@@ -1227,8 +1717,32 @@ export class GameEngine {
     this.camera.position.z = 10.4;
     this.camera.lookAt(this.camera.position.x - 1.0, 1.4, 0);
     this.dirLight.position.x = this.camera.position.x + 1.2;
+
+    // Background parallax & elements tracking
     if (this.backdropMesh) {
       this.backdropMesh.position.x = this.camera.position.x;
+    }
+    if (this.celestialMesh) {
+      this.celestialMesh.position.x = this.camera.position.x * 0.95 + 10;
+    }
+    if (this.farMountainGroup) {
+      this.farMountainGroup.position.x = this.camera.position.x * 0.15;
+    }
+    if (this.nearMountainGroup) {
+      this.nearMountainGroup.position.x = this.camera.position.x * 0.35;
+    }
+    if (this.starsMesh) {
+      this.starsMesh.position.x = this.camera.position.x * 0.98;
+    }
+    if (this.auroraMesh) {
+      this.auroraMesh.position.x = this.camera.position.x * 0.96;
+      this.auroraMesh.rotation.z = Math.sin(time * 0.6) * 0.04;
+    }
+    for (const cloud of this.clouds) {
+      cloud.position.x += delta * (cloud.userData['speed'] || 0.5);
+      if (cloud.position.x < this.camera.position.x - 45) {
+        cloud.position.x = this.camera.position.x + 45 + Math.random() * 10;
+      }
     }
 
     // Platform Collisions & Snapping
@@ -1408,6 +1922,15 @@ export class GameEngine {
     this.dirLight.position.set(startX + 5, 12, 9);
     if (this.backdropMesh) {
       this.backdropMesh.position.x = this.camera.position.x;
+    }
+    if (this.celestialMesh) {
+      this.celestialMesh.position.x = this.camera.position.x * 0.95 + 10;
+    }
+    if (this.farMountainGroup) {
+      this.farMountainGroup.position.x = this.camera.position.x * 0.15;
+    }
+    if (this.nearMountainGroup) {
+      this.nearMountainGroup.position.x = this.camera.position.x * 0.35;
     }
   }
 

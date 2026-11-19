@@ -94,6 +94,12 @@ export interface Translations {
   exitToStages: string;
   distanceCovered: string;
   coinsCollected: string;
+  loadingTitle: string;
+  loadingTip1: string;
+  loadingTip2: string;
+  loadingTip3: string;
+  loadingTip4: string;
+  loadingTip5: string;
   obstacleHitNotice: string;
   fellNotice: string;
   coins: string;
@@ -204,6 +210,12 @@ const EN: Translations = {
   exitToStages: 'STAGES MAP ➔',
   distanceCovered: 'Distance',
   coinsCollected: 'Coins',
+  loadingTitle: 'PREPARING ADVENTURE...',
+  loadingTip1: 'Sprouting fresh grass on the platforms... 🌱',
+  loadingTip2: 'Tuning voice jump sensors... 🎙️',
+  loadingTip3: 'Painting fluffy clouds and beautiful sky... ☀️',
+  loadingTip4: 'Dressing up the 3D bunny... 🐰',
+  loadingTip5: 'Polishing shiny gold coins... 🪙',
   obstacleHitNotice: 'Obstacle hit! Try that jump again!',
   fellNotice: 'Whoops! Keep your voice up to clear the gap!',
   coins: 'Coins',
@@ -314,6 +326,12 @@ const UK: Translations = {
   exitToStages: 'ДО РІВНІВ ➔',
   distanceCovered: 'Пройдено',
   coinsCollected: 'Монети',
+  loadingTitle: 'ПІДГОТОВКА ПРИГОДИ...',
+  loadingTip1: 'Стрижемо свіжу травичку на платформах... 🌱',
+  loadingTip2: 'Налаштовуємо голосові сенсори... 🎙️',
+  loadingTip3: 'Малюємо пухнасті хмаринки та сонечко... ☀️',
+  loadingTip4: 'Завантажуємо 3D зайчика... 🐰',
+  loadingTip5: 'Натираємо золоті монетки до блиску... 🪙',
   obstacleHitNotice: 'Удар об перешкоду! Спробуй стрибок ще раз!',
   fellNotice: 'Ой! Тримай голос голосніше, щоб не впасти!',
   coins: 'Монети',

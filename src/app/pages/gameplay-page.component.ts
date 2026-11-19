@@ -298,6 +298,36 @@ import { LangSwitcherComponent } from '../components/lang-switcher.component';
         </div>
       }
 
+      <!-- Arcade Asset Loading Screen Overlay -->
+      @if (isLoading()) {
+        <div class="game-loading-overlay" [class.fade-out]="loadingProgress() === 100">
+          <div class="loading-card">
+            <div class="loading-bunny-wrap">
+              <img src="assets/bunny.png" alt="YUMP Bunny" class="loading-bunny" />
+              <div class="bunny-shadow"></div>
+            </div>
+
+            <div class="loading-brand">
+              <h2 class="loading-logo">YUMP!</h2>
+              <span class="loading-stage-badge">
+                {{ i18n.t.stages }} 0{{ level.id }} • {{ getLevelName(level.id) }}
+              </span>
+            </div>
+
+            <div class="loading-bar-track">
+              <div class="loading-bar-fill" [style.width.%]="loadingProgress()">
+                <div class="bar-shine"></div>
+              </div>
+            </div>
+
+            <div class="loading-meta">
+              <span class="loading-tip">{{ currentLoadingTip() }}</span>
+              <span class="loading-pct">{{ loadingProgress() }}%</span>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Gameplay In-Game Toast Notice -->
       @if (notice()) {
         <div class="game-notice-toast" [class.carrot-toast]="isCarrotNotice()">
@@ -314,11 +344,29 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly i18n = inject(TranslationService);
   level: GameLevel;
+  readonly isLoading = signal(true);
+  readonly loadingProgress = signal(18);
+  readonly currentTipIndex = signal(0);
+  private loadingTimer?: number;
+  private tipTimer?: number;
+
   readonly modal = signal<'calibration' | 'results' | 'gameover' | null>('calibration');
   readonly defeatReason = signal<'hit' | 'fell'>('hit');
   readonly notice = signal('');
   readonly noticeIcon = signal('💥');
   readonly isCarrotNotice = signal(false);
+
+  readonly currentLoadingTip = computed(() => {
+    const t = this.i18n.t;
+    const tips = [
+      t.loadingTip1,
+      t.loadingTip2,
+      t.loadingTip3,
+      t.loadingTip4,
+      t.loadingTip5,
+    ];
+    return tips[this.currentTipIndex() % tips.length];
+  });
 
   // Dynamic game stats signals
   readonly currentScore = signal(0);
@@ -418,6 +466,7 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.startLoadingSimulation();
     this.routeSub = this.route.paramMap.subscribe((params) => {
       const newId = Number(params.get('id'));
       if (newId && newId !== this.level.id) {
@@ -425,6 +474,43 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.initStageForLevel();
       }
     });
+  }
+
+  private startLoadingSimulation(): void {
+    this.stopLoadingSimulation();
+    this.tipTimer = window.setInterval(() => {
+      this.currentTipIndex.update((i) => (i + 1) % 5);
+    }, 700);
+
+    let prog = 18;
+    this.loadingTimer = window.setInterval(() => {
+      if (prog < 90) {
+        prog += Math.floor(Math.random() * 14 + 10);
+        this.loadingProgress.set(Math.min(90, prog));
+      }
+    }, 160);
+  }
+
+  private stopLoadingSimulation(): void {
+    if (this.loadingTimer) {
+      window.clearInterval(this.loadingTimer);
+      this.loadingTimer = undefined;
+    }
+    if (this.tipTimer) {
+      window.clearInterval(this.tipTimer);
+      this.tipTimer = undefined;
+    }
+  }
+
+  onAssetsReady(): void {
+    this.loadingProgress.set(100);
+    window.setTimeout(() => {
+      this.isLoading.set(false);
+      this.stopLoadingSimulation();
+      if (this.voice.state() === 'ready' && this.modal() === null) {
+        this.startLevel();
+      }
+    }, 380);
   }
 
   getLevelName(id: number): string {
@@ -444,10 +530,13 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.engine = new GameEngine(this.stage!.nativeElement, this.level);
-    if (this.voice.state() === 'ready' && this.modal() === null) {
-      this.startLevel();
-    }
+    this.engine = new GameEngine(this.stage!.nativeElement, this.level, () => this.onAssetsReady());
+    // Fallback if loading takes longer than 2.2s
+    window.setTimeout(() => {
+      if (this.isLoading()) {
+        this.onAssetsReady();
+      }
+    }, 2200);
   }
 
   goToNextLevel(): void {
@@ -457,10 +546,13 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private initStageForLevel(): void {
+    this.isLoading.set(true);
+    this.loadingProgress.set(22);
+    this.startLoadingSimulation();
     this.stopGameLoop();
     this.engine?.dispose();
     if (this.stage?.nativeElement) {
-      this.engine = new GameEngine(this.stage.nativeElement, this.level);
+      this.engine = new GameEngine(this.stage.nativeElement, this.level, () => this.onAssetsReady());
     }
     this.currentScore.set(0);
     this.currentDistance.set(0);
@@ -468,10 +560,15 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.shieldSeconds.set(0);
     if (this.voice.state() === 'ready') {
       this.modal.set(null);
-      this.startLevel();
     } else {
       this.modal.set('calibration');
     }
+    // Fallback if loading takes longer than 2.2s
+    window.setTimeout(() => {
+      if (this.isLoading()) {
+        this.onAssetsReady();
+      }
+    }, 2200);
   }
 
   async calibrate(): Promise<void> {
@@ -563,7 +660,7 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   restart(): void {
     this.stopGameLoop();
     this.engine?.dispose();
-    this.engine = new GameEngine(this.stage!.nativeElement, this.level);
+    this.engine = new GameEngine(this.stage!.nativeElement, this.level, () => this.onAssetsReady());
     this.currentScore.set(0);
     this.currentDistance.set(0);
     this.shieldActive.set(false);
@@ -572,6 +669,7 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopLoadingSimulation();
     this.routeSub?.unsubscribe();
     if (this.calCheckTimer) {
       window.clearInterval(this.calCheckTimer);
