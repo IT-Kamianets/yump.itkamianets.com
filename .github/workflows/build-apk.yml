@@ -17,11 +17,15 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Set up Java JDK 17
+      - name: Set up Java JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
+
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Install dependencies
         run: npm ci
@@ -37,7 +41,7 @@ jobs:
           CI: 'true'
           CAPACITOR_TELEMETRY: 'false'
         run: |
-          npx @capacitor/cli add android
+          npx @capacitor/cli add android || true
 
       - name: Configure Landscape & Microphone Permissions
         run: |
@@ -51,12 +55,10 @@ jobs:
           npx @capacitor/cli sync android
 
       - name: Build Debug APK with Gradle
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
