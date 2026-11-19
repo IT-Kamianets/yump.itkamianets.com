@@ -474,6 +474,8 @@ export class GameEngine {
     this.dirLight.position.set(5, 12, 9);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.set(1024, 1024);
+    this.dirLight.shadow.bias = -0.0005;
+    this.dirLight.shadow.normalBias = 0.02;
     this.dirLight.shadow.camera.near = 0.5;
     this.dirLight.shadow.camera.far = 40;
     this.dirLight.shadow.camera.left = -15;
@@ -1353,33 +1355,40 @@ export class GameEngine {
     const group = new THREE.Group();
     group.position.set(x, y, 0);
 
-    // 1. Earth / Soil Body
-    const soilGeo = new THREE.BoxGeometry(width, 0.85, 3.4);
-    const soilMat = new THREE.MeshStandardMaterial({
-      color: this.theme.earthColor,
-      roughness: 0.95,
-      metalness: 0.05,
-    });
-    const soilMesh = new THREE.Mesh(soilGeo, soilMat);
-    soilMesh.castShadow = true;
-    soilMesh.receiveShadow = true;
-    group.add(soilMesh);
-
-    // Darker geological strata on lower portion of soil
-    const strataGeo = new THREE.BoxGeometry(width + 0.02, 0.32, 3.42);
+    // 1. Lower Geological Bedrock Strata (bottom of platform)
+    // Sits from y = -0.425 to y = -0.14
+    const strataHeight = 0.285;
+    const strataGeo = new THREE.BoxGeometry(width, strataHeight, 3.4);
     const strataMat = new THREE.MeshStandardMaterial({
       color: this.theme.earthStrataColor,
       roughness: 0.98,
       metalness: 0.02,
     });
     const strataMesh = new THREE.Mesh(strataGeo, strataMat);
-    strataMesh.position.y = -0.26;
+    strataMesh.position.y = -0.425 + strataHeight / 2;
+    strataMesh.castShadow = true;
     strataMesh.receiveShadow = true;
     group.add(strataMesh);
 
-    // 2. Lush Grass Top Cap
+    // 2. Rich Loam Soil Body (middle layer)
+    // Sits from y = -0.15 to y = +0.25 (tucked 0.005 inside grass bottom 0.245, well below top grass 0.425)
+    const soilHeight = 0.4;
+    const soilGeo = new THREE.BoxGeometry(width, soilHeight, 3.4);
+    const soilMat = new THREE.MeshStandardMaterial({
+      color: this.theme.earthColor,
+      roughness: 0.95,
+      metalness: 0.05,
+    });
+    const soilMesh = new THREE.Mesh(soilGeo, soilMat);
+    soilMesh.position.y = 0.05;
+    soilMesh.castShadow = true;
+    soilMesh.receiveShadow = true;
+    group.add(soilMesh);
+
+    // 3. Lush Grass Top Cap (top layer)
+    // Sits strictly from y = +0.245 to y = +0.425 (top landing surface is exclusively at 0.425, NO other mesh at this Y!)
     const grassThickness = 0.18;
-    const grassGeo = new THREE.BoxGeometry(width + 0.12, grassThickness, 3.52);
+    const grassGeo = new THREE.BoxGeometry(width + 0.14, grassThickness, 3.54);
     const grassMat = new THREE.MeshStandardMaterial({
       color: this.theme.grassColor,
       emissive: this.theme.grassEmissive,
@@ -1393,10 +1402,10 @@ export class GameEngine {
     grassMesh.receiveShadow = true;
     group.add(grassMesh);
 
-    // 3. Scalloped Grass Hanging Tufts along the front edge (facing player)
+    // 4. Scalloped Grass Hanging Tufts along the front edge (facing player)
     const tuftSpacing = 0.65;
     const numTufts = Math.max(2, Math.floor(width / tuftSpacing));
-    const tuftGeo = new THREE.ConeGeometry(0.14, 0.22, 4);
+    const tuftGeo = new THREE.ConeGeometry(0.13, 0.22, 4);
     tuftGeo.rotateZ(Math.PI);
     const tuftMat = new THREE.MeshStandardMaterial({
       color: this.theme.grassTrimColor,
@@ -1407,7 +1416,7 @@ export class GameEngine {
     for (let i = 0; i < numTufts; i++) {
       const tuftX = -width / 2 + (i + 0.5) * (width / numTufts);
       const tuft = new THREE.Mesh(tuftGeo, tuftMat);
-      tuft.position.set(tuftX, 0.24, 1.76);
+      tuft.position.set(tuftX, 0.23, 1.77);
       group.add(tuft);
     }
 
