@@ -456,8 +456,8 @@ export class GameEngine {
     this.scene.fog = new THREE.Fog(this.theme.fogColor, this.theme.fogNear, this.theme.fogFar);
 
     // 2. Camera initial framing - comfortably framing the bunny and platforms
-    this.camera.position.set(4, 2.9, 10.4);
-    this.camera.lookAt(3.0, 1.4, 0);
+    this.camera.position.set(4, 3.4, 10.4);
+    this.camera.lookAt(3.0, 1.9, 0);
 
     // 3. Dynamic Lighting from theme
     this.ambientLight.color.set(this.theme.ambientColor);
@@ -1722,9 +1722,9 @@ export class GameEngine {
     // Camera Smooth Tracking - stable height so jumps feel epic and high
     const targetCamX = this.bunny.position.x + 3.8;
     this.camera.position.x += (targetCamX - this.camera.position.x) * 0.14;
-    this.camera.position.y = 2.9;
+    this.camera.position.y = 3.4;
     this.camera.position.z = 10.4;
-    this.camera.lookAt(this.camera.position.x - 1.0, 1.4, 0);
+    this.camera.lookAt(this.camera.position.x - 1.0, 1.9, 0);
     this.dirLight.position.x = this.camera.position.x + 1.2;
 
     // Background parallax & elements tracking
@@ -1926,8 +1926,8 @@ export class GameEngine {
     this.jumpCooldown = 0.35;
 
     // Reset camera position directly framing the bunny and starting platforms
-    this.camera.position.set(startX + 3.8, 2.9, 10.4);
-    this.camera.lookAt(startX + 0.8, 1.4, 0);
+    this.camera.position.set(startX + 3.8, 3.4, 10.4);
+    this.camera.lookAt(startX + 0.8, 1.9, 0);
     this.dirLight.position.set(startX + 5, 12, 9);
     if (this.backdropMesh) {
       this.backdropMesh.position.x = this.camera.position.x;

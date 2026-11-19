@@ -1251,63 +1251,79 @@
 
   /* Compact tutorial card in landscape */
   .tutorial-live-card {
-    top: 44px;
-    width: min(440px, calc(100vw - 120px));
-    padding: 6px 14px;
-    border-radius: 16px;
+    top: 38px;
+    width: min(340px, calc(100vw - 160px));
+    padding: 4px 10px;
+    border-radius: 12px;
+    gap: 8px;
+    border-width: 1.5px;
 
     .tut-icon-badge {
-      font-size: 1.4rem;
+      font-size: 1.05rem;
     }
 
     .tut-step-tag {
-      font-size: 0.65rem;
+      font-size: 0.58rem;
     }
 
     .tut-step-title {
-      font-size: 0.92rem;
+      font-size: 0.78rem;
+      line-height: 1.15;
     }
 
     .tut-step-desc {
-      font-size: 0.75rem;
-      line-height: 1.25;
+      font-size: 0.68rem;
+      line-height: 1.2;
       margin: 1px 0 0;
     }
   }
 
-  /* Compact Voice Cockpit floating unobtrusively at bottom-left */
+  /* Ultra-compact Voice Cockpit floating discreetly at bottom-left */
   .voice-cockpit {
-    left: calc(env(safe-area-inset-left, 16px) + 12px);
+    left: calc(env(safe-area-inset-left, 16px) + 8px);
     right: auto;
-    bottom: calc(env(safe-area-inset-bottom, 8px) + 6px);
-    width: 220px;
-    padding: 6px 12px;
-    border-radius: 14px;
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 4px);
+    width: 150px;
+    padding: 4px 8px;
+    border-radius: 10px;
 
     .cockpit-top {
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
 
     .cockpit-label {
-      font-size: 0.68rem;
+      font-size: 0.56rem;
+      letter-spacing: 0.04em;
+    }
+
+    .cockpit-dot {
+      width: 5px;
+      height: 5px;
     }
 
     .cockpit-val {
-      font-size: 0.95rem;
+      font-size: 0.78rem;
     }
 
     .eq-bars {
-      height: 16px;
-      margin-bottom: 3px;
+      height: 10px;
+      margin-bottom: 2px;
+      gap: 2px;
+
+      .bar {
+        width: 3px;
+        border-radius: 2px;
+      }
     }
 
     .cockpit-meter {
-      height: 5px;
-      margin-bottom: 3px;
+      height: 3px;
+      margin-bottom: 2px;
     }
 
     .cockpit-msg {
-      font-size: 0.68rem;
+      font-size: 0.56rem;
+      line-height: 1.1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1317,13 +1333,13 @@
   /* Compact Tip Pill at bottom-right */
   .game-tip-pill {
     display: inline-flex;
-    right: calc(env(safe-area-inset-right, 16px) + 12px);
-    bottom: calc(env(safe-area-inset-bottom, 8px) + 6px);
-    padding: 4px 10px;
-    font-size: 0.75rem;
+    right: calc(env(safe-area-inset-right, 16px) + 8px);
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 4px);
+    padding: 3px 8px;
+    font-size: 0.65rem;
 
     .tip-sound-icon {
-      font-size: 0.85rem;
+      font-size: 0.75rem;
     }
   }
 
