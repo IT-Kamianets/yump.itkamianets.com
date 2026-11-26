@@ -43,7 +43,18 @@ jobs:
         run: |
           npx @capacitor/cli add android || true
 
+      - name: Generate Android App Icons & Splash Screens
+        run: |
+          npx @capacitor/assets generate --android \
+            --iconBackgroundColor '#0c1024' \
+            --iconBackgroundColorDark '#0c1024' \
+            --splashBackgroundColor '#0c1024' \
+            --splashBackgroundColorDark '#0c1024'
+
       - name: Configure Landscape & Microphone Permissions
+        env:
+          CI: 'true'
+          CAPACITOR_TELEMETRY: 'false'
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
