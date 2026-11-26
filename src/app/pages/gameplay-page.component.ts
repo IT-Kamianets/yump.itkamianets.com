@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { KeepAwake } from '@capacitor-community/keep-awake';
 import { Subscription } from 'rxjs';
 import { GameEngine, GameEvent } from '../game/game-engine';
 import { getLevel } from '../game/levels';
@@ -572,6 +573,7 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async calibrate(): Promise<void> {
+    void this.ensureKeepAwake();
     await this.voice.beginCalibration();
     if (this.calCheckTimer) window.clearInterval(this.calCheckTimer);
     this.calCheckTimer = window.setInterval(() => {
@@ -688,7 +690,19 @@ export class GameplayPageComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.min(100, Math.max(12, power * 100 * multiplier));
   }
 
+  private async ensureKeepAwake(): Promise<void> {
+    try {
+      const { isKeptAwake } = await KeepAwake.isKeptAwake();
+      if (!isKeptAwake) {
+        await KeepAwake.keepAwake();
+      }
+    } catch {
+      // Ignore on browsers without Screen Wake Lock API
+    }
+  }
+
   private startGameLoop(): void {
+    void this.ensureKeepAwake();
     const loop = (): void => {
       // 1. Voice input polling
       if (this.voice.state() === 'ready') {
