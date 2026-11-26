@@ -5,17 +5,19 @@ const config: CapacitorConfig = {
   appId: 'com.itkamianets.yump',
   appName: 'YUMP!',
   webDir: 'dist/yump/browser',
+  backgroundColor: '#0c1024',
   server: {
     androidScheme: 'https',
   },
   android: {
     allowMixedContent: true,
+    backgroundColor: '#0c1024',
   },
   plugins: {
     EdgeToEdge: {
       backgroundColor: '#0c1024',
       statusBarColor: '#0c1024',
-      navigationBarColor: '#070a1a',
+      navigationBarColor: '#0c1024',
     },
     SystemBars: {
       insetsHandling: 'disable',

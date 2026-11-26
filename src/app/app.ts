@@ -19,7 +19,7 @@ export class App implements OnInit {
   private async configureAndroidSystemBars(): Promise<void> {
     try {
       await EdgeToEdge.setStatusBarColor({ color: '#0c1024' });
-      await EdgeToEdge.setNavigationBarColor({ color: '#070a1a' });
+      await EdgeToEdge.setNavigationBarColor({ color: '#0c1024' });
       await SystemBars.setStyle({ style: SystemBarsStyle.Dark });
     } catch {
       // Fallback safely if native bridge isn't available

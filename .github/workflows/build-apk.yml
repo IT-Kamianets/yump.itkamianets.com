@@ -51,7 +51,7 @@ jobs:
             --splashBackgroundColor '#0c1024' \
             --splashBackgroundColorDark '#0c1024'
 
-      - name: Configure Landscape & Microphone Permissions
+      - name: Configure Landscape, Backdrop Color & Microphone Permissions
         env:
           CI: 'true'
           CAPACITOR_TELEMETRY: 'false'
@@ -63,6 +63,43 @@ jobs:
             fi
             sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/g' "$MANIFEST"
           fi
+
+          # Paint Android window/cutout backdrop #0c1024 so camera cutout margins match game background
+          for STYLES in $(find android/app/src/main/res -name "styles.xml"); do
+            if grep -q 'name="AppTheme.NoActionBar"' "$STYLES" && ! grep -q 'android:windowBackground' "$STYLES"; then
+              sed -i '/<item name="windowNoTitle">true<\/item>/a \        <item name="android:windowBackground">#0c1024<\/item>' "$STYLES"
+            fi
+          done
+
+          # Also set CoordinatorLayout/DecorView background to #0c1024 in MainActivity.java
+          MAIN_ACTIVITY=$(find android/app/src/main/java -name "MainActivity.java" | head -n 1)
+          if [ -n "$MAIN_ACTIVITY" ]; then
+            cat << 'EOF' > "$MAIN_ACTIVITY"
+          package com.itkamianets.yump;
+
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.view.View;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  int bgColor = Color.parseColor("#0c1024");
+                  getWindow().getDecorView().setBackgroundColor(bgColor);
+                  View content = findViewById(android.R.id.content);
+                  if (content != null) {
+                      content.setBackgroundColor(bgColor);
+                  }
+                  if (bridge != null && bridge.getWebView() != null && bridge.getWebView().getParent() instanceof View) {
+                      ((View) bridge.getWebView().getParent()).setBackgroundColor(bgColor);
+                  }
+              }
+          }
+          EOF
+          fi
+
           npx @capacitor/cli sync android
 
       - name: Build Debug APK with Gradle
